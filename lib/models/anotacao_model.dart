@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_null_comparison
+
 class Anotacao {
   final String? id;
   final String? titulo;
@@ -13,9 +15,9 @@ class Anotacao {
     this.data,
   });
 
-  /// Fábrica que converte JSON em um objeto Anotacao
+  /// Construtor de fábrica para criar uma instância a partir de um JSON
   factory Anotacao.fromJson(Map<String, dynamic> json) {
-    // 🧠 Extrai o ID do formato MongoDB ou string comum
+    // 📌 Tenta extrair o ID, seja ele normal ou no formato MongoDB
     String? idExtraido;
 
     if (json['id'] != null) {
@@ -26,7 +28,6 @@ class Anotacao {
       idExtraido = json['_id'].toString();
     }
 
-    // 🚨 Se ainda não encontrou um ID válido, lança exceção
     if (idExtraido == null || idExtraido.isEmpty) {
       throw Exception('ID da anotação ausente ou inválido: $json');
     }
@@ -40,7 +41,7 @@ class Anotacao {
     );
   }
 
-  /// Converte objeto Anotacao para JSON (para enviar ao backend)
+  /// Método para converter a anotação em um JSON
   Map<String, dynamic> toJson() {
     return {
       'title': titulo,
@@ -50,7 +51,7 @@ class Anotacao {
     };
   }
 
-  /// Conversão segura para data a partir de string, timestamp ou formato MongoDB
+  /// Utilitário para parse seguro de datas em diferentes formatos
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
 

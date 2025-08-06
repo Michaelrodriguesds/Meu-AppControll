@@ -6,7 +6,11 @@ class AnotacoesScreen extends StatefulWidget {
   final String usuarioId;
   final String token;
 
-  const AnotacoesScreen({Key? key, required this.usuarioId, required this.token}) : super(key: key);
+  const AnotacoesScreen({
+    Key? key,
+    required this.usuarioId,
+    required this.token,
+  }) : super(key: key);
 
   @override
   State<AnotacoesScreen> createState() => _AnotacoesScreenState();
@@ -21,14 +25,17 @@ class _AnotacoesScreenState extends State<AnotacoesScreen> {
     _carregar();
   }
 
+  // Carrega a lista de anotações do serviço
   void _carregar() {
     _future = AnotacaoService.listar(widget.token);
   }
 
+  // Atualiza a tela após ações
   void _atualizarTela() {
     setState(() => _carregar());
   }
 
+  // Confirmação de exclusão de anotação
   void _confirmarExclusao(Anotacao a) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -57,7 +64,11 @@ class _AnotacoesScreenState extends State<AnotacoesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Minhas Anotações")),
+      appBar: AppBar(
+        title: const Text("Minhas Anotações"),
+        centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
+      ),
       body: FutureBuilder<List<Anotacao>>(
         future: _future,
         builder: (context, snapshot) {
@@ -75,21 +86,36 @@ class _AnotacoesScreenState extends State<AnotacoesScreen> {
             return const Center(child: Text('Nenhuma anotação encontrada.'));
           }
 
+          // Lista estilizada com Cards
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: anotacoes.length,
             itemBuilder: (context, index) {
               final a = anotacoes[index];
 
-              return ListTile(
-                title: Text(a.titulo ?? 'Sem título'),
-                subtitle: Text(a.conteudo ?? ''),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () async {
-                        await Navigator.pushNamed(
+              return Card(
+                elevation: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  title: Text(
+                    a.titulo ?? 'Sem título',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      a.conteudo ?? '',
+                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                    ),
+                  ),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'editar') {
+                        Navigator.pushNamed(
                           context,
                           '/anotacao_form',
                           arguments: {
@@ -97,22 +123,26 @@ class _AnotacoesScreenState extends State<AnotacoesScreen> {
                             'usuarioId': widget.usuarioId,
                             'token': widget.token,
                           },
-                        );
-                        _atualizarTela();
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmarExclusao(a),
-                    ),
-                  ],
+                        ).then((_) => _atualizarTela());
+                      } else if (value == 'excluir') {
+                        _confirmarExclusao(a);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'editar', child: Text('Editar')),
+                      const PopupMenuItem(value: 'excluir', child: Text('Excluir')),
+                    ],
+                    icon: const Icon(Icons.more_vert),
+                  ),
                 ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+
+      // Botão flutuante com estilo moderno
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.pushNamed(
             context,
@@ -124,7 +154,9 @@ class _AnotacoesScreenState extends State<AnotacoesScreen> {
           );
           _atualizarTela();
         },
-        child: const Icon(Icons.add),
+        label: const Text('Nova Anotação'),
+        icon: const Icon(Icons.add),
+        backgroundColor: Colors.teal,
       ),
     );
   }

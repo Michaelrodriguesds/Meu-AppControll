@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class UsuarioService {
-  // O prefixo /api vem do backend: app.include_router(..., prefix="/api")
   static const String baseUrl = 'http://10.0.0.101:8000/api';
 
   static Future<bool> criarUsuario(Map<String, dynamic> usuario) async {
@@ -41,7 +40,7 @@ class UsuarioService {
         final data = jsonDecode(response.body);
         return {
           'token': data['access_token'],
-          'usuarioId': data['access_token'], // ajustar depois para extrair ID do token se quiser
+          'usuarioId': data['user']['id'], // <- Corrigido aqui
         };
       } else {
         print('Erro no login. Código: ${response.statusCode}');
@@ -50,6 +49,25 @@ class UsuarioService {
       }
     } catch (e) {
       print('Erro no login: $e');
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getUsuarioPorId(String id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/$id'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Erro ao buscar usuário: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Erro ao buscar usuário: $e');
       return null;
     }
   }

@@ -5,10 +5,10 @@ class CustomDrawer extends StatelessWidget {
   final String emailUsuario;
 
   const CustomDrawer({
-    Key? key,
+    super.key,
     required this.nomeUsuario,
     required this.emailUsuario,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,65 +22,39 @@ class CustomDrawer extends StatelessWidget {
               backgroundColor: Colors.white,
               child: Text(
                 nomeUsuario.isNotEmpty ? nomeUsuario[0] : '',
-                style: TextStyle(fontSize: 32, color: Colors.blue),
+                style: const TextStyle(fontSize: 32, color: Colors.teal),
               ),
             ),
           ),
-
           ListTile(
-            leading: Icon(Icons.home),
-            title: Text('Home'),
-            onTap: () {
-              Navigator.pushReplacementNamed(context, '/home');
-            },
+            leading: const Icon(Icons.home),
+            title: const Text('Home'),
+            onTap: () => Navigator.pushReplacementNamed(context, '/home'),
           ),
-
           ListTile(
-            leading: Icon(Icons.folder_open),
-            title: Text('Projetos'),
-            onTap: () {
-              Navigator.pushReplacementNamed(context, '/projetos');
-            },
+            leading: const Icon(Icons.folder),
+            title: const Text('Projetos'),
+            onTap: () => Navigator.pushReplacementNamed(context, '/projetos'),
           ),
-
           ListTile(
-            leading: Icon(Icons.note),
-            title: Text('Anotações'),
-            onTap: () {
-              Navigator.pushReplacementNamed(context, '/anotacoes');
-            },
+            leading: const Icon(Icons.note),
+            title: const Text('Anotações'),
+            onTap: () => Navigator.pushReplacementNamed(context, '/anotacoes'),
           ),
-
-          Divider(),
-
+          const Divider(),
           ListTile(
-            leading: Icon(Icons.person),
-            title: Text('Perfil'),
-            onTap: () {
-              Navigator.pushReplacementNamed(context, '/perfil');
-            },
+            leading: const Icon(Icons.person),
+            title: const Text('Perfil'),
+            onTap: () => Navigator.pushReplacementNamed(context, '/perfil'),
           ),
-
-          Spacer(),
-
+          const Spacer(),
           ListTile(
-            leading: Icon(Icons.logout, color: Colors.red),
-            title: Text('Sair da Conta', style: TextStyle(color: Colors.red)),
-            onTap: () {
-              // TODO: Implementar logout
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Sair da Conta', style: TextStyle(color: Colors.red)),
+            onTap: () => Navigator.pushReplacementNamed(context, '/login'),
           ),
         ],
       ),
     );
   }
 }
-Scaffold(
-  appBar: AppBar(title: Text('Minha Tela')),
-  drawer: CustomDrawer(
-    nomeUsuario: 'João da Silva', 
-    emailUsuario: 'joao@email.com',
-  ),
-  body: ...,
-);

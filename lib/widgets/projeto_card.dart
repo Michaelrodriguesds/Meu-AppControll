@@ -17,8 +17,8 @@ class ProjetoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cálculo do progresso
-    final double progresso = (projeto.valorAplicado / projeto.investimentoNecessario).clamp(0, 1);
+    final double progresso =
+        (projeto.valorAplicado / projeto.valorNecessario).clamp(0.0, 1.0);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -27,7 +27,7 @@ class ProjetoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header com botão voltar e título do projeto
+            // Título com botão voltar
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -35,19 +35,22 @@ class ProjetoCard extends StatelessWidget {
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => Navigator.pop(context),
                 ),
-                Text(
-                  'Projeto: ${projeto.nome} ✈️',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    'Projeto: ${projeto.titulo} ✈️',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const SizedBox(width: 48), // Espaço para equilibrar o layout
+                const SizedBox(width: 16),
               ],
             ),
             const SizedBox(height: 8),
 
             // Valores financeiros
-            Text('💰 Investimento Necessário: R\$ ${projeto.investimentoNecessario.toStringAsFixed(2)}'),
+            Text('💰 Investimento Necessário: R\$ ${projeto.valorNecessario.toStringAsFixed(2)}'),
             Text('💸 Valor Aplicado: R\$ ${projeto.valorAplicado.toStringAsFixed(2)}'),
-            Text('📊 Investimento Restante: R\$ ${(projeto.investimentoNecessario - projeto.valorAplicado).toStringAsFixed(2)}'),
+            Text('📊 Investimento Restante: R\$ ${(projeto.valorNecessario - projeto.valorAplicado).toStringAsFixed(2)}'),
 
             const SizedBox(height: 12),
 
@@ -65,8 +68,9 @@ class ProjetoCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Informações adicionais
-            Text('🗓️ Início: ${projeto.dataInicio}'),
+            Text('🗓️ Início: ${projeto.dataInicio.toLocal().toString().split(' ')[0]}'),
             Text('📂 Categoria: ${projeto.categoria}'),
+
             const SizedBox(height: 12),
 
             // Descrição
@@ -75,23 +79,20 @@ class ProjetoCard extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Botões ação
+            // Botões
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton(
-                  onPressed: onEditar,
-                  child: const Text('Editar Projeto'),
-                ),
+                ElevatedButton(onPressed: onEditar, child: const Text('Editar')),
                 ElevatedButton(
                   onPressed: onDeletar,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Deletar Projeto'),
+                  child: const Text('Deletar'),
                 ),
                 ElevatedButton(
                   onPressed: onInvestirMais,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text('Investi Mais'),
+                  child: const Text('Investir'),
                 ),
               ],
             ),

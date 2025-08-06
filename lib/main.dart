@@ -1,4 +1,7 @@
+// main.dart
 import 'package:flutter/material.dart';
+
+// Telas principais
 import 'package:meu_app_financas/screens/login_screen.dart';
 import 'package:meu_app_financas/screens/cadastro_screen.dart';
 import 'package:meu_app_financas/screens/home_screen.dart';
@@ -7,13 +10,25 @@ import 'package:meu_app_financas/screens/anotacoes_screen.dart';
 import 'package:meu_app_financas/screens/anotacao_form.dart';
 import 'package:meu_app_financas/screens/projeto_form.dart';
 import 'package:meu_app_financas/screens/projeto_detalhe.dart';
+import 'package:meu_app_financas/screens/perfil_screen.dart';
+
+// Modelos
 import 'package:meu_app_financas/models/projeto_model.dart';
 import 'package:meu_app_financas/models/anotacao_model.dart';
 
-// Importa a tela de perfil criada
-import 'package:meu_app_financas/screens/perfil_screen.dart';
+// Notificações
+import 'package:meu_app_financas/utils/notificacao_service.dart';
+import 'package:timezone/data/latest_all.dart' as tz; // ✅ Importa timezones
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Inicializa timezones antes das notificações
+  tz.initializeTimeZones();
+
+  // ✅ Inicializa notificações locais
+  await NotificacaoService.init();
+
   runApp(const MeuAppFinancas());
 }
 
@@ -29,13 +44,11 @@ class MeuAppFinancas extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       debugShowCheckedModeBanner: false,
-      // Rotas básicas
       initialRoute: '/',
       routes: {
         '/': (context) => LoginScreen(),
         '/cadastro': (context) => const CadastroScreen(),
         '/home': (context) {
-          // Recupera argumentos obrigatórios para abrir home
           final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
           if (args == null || args['token'] == null || args['usuarioId'] == null) {
@@ -49,7 +62,6 @@ class MeuAppFinancas extends StatelessWidget {
             usuarioId: args['usuarioId'],
           );
         },
-        // Nova rota adicionada para a tela de perfil do usuário
         '/perfil': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
           if (args == null || args['token'] == null) {
@@ -57,11 +69,9 @@ class MeuAppFinancas extends StatelessWidget {
               body: Center(child: Text('Erro: Token não fornecido para perfil')),
             );
           }
-          // Passa token para autenticação na tela de perfil
           return PerfilScreen(token: args['token']);
         },
       },
-      // Rotas dinâmicas para telas que recebem argumentos complexos
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/projetos':

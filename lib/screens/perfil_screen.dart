@@ -12,9 +12,8 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
-  // Modelo básico do perfil
   late Future<UserProfile> _perfilFuture;
-  bool _isDarkTheme = false; // controle simples do tema (pode salvar localmente depois)
+  bool _isDarkTheme = false;
 
   @override
   void initState() {
@@ -22,9 +21,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
     _perfilFuture = fetchUserProfile();
   }
 
-  // Função para buscar perfil no backend
+  /// Função que busca os dados do perfil via API
   Future<UserProfile> fetchUserProfile() async {
-    final url = Uri.parse('https://seu-backend.com/perfil/'); // ajuste a URL da sua API
+    final url = Uri.parse('https://seu-backend.com/perfil/'); // 🔁 Substitua pela sua URL real
 
     final response = await http.get(
       url,
@@ -44,20 +43,22 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
-  // Alterna tema claro/escuro (simplificado, só para exemplo)
+  /// Alterna entre tema claro e escuro (sem persistência)
   void toggleTheme() {
     setState(() {
       _isDarkTheme = !_isDarkTheme;
     });
   }
 
-  // Função para simular logout (retorna para tela login)
+  /// Faz logout e retorna para tela de login
   void logout() {
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfil 👤'),
@@ -70,88 +71,94 @@ class _PerfilScreenState extends State<PerfilScreen> {
         future: _perfilFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Carregando
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            // Erro ao carregar
             return Center(child: Text('Erro: ${snapshot.error}'));
           } else if (!snapshot.hasData) {
-            // Nenhum dado encontrado
             return const Center(child: Text('Perfil não encontrado.'));
           }
 
           final perfil = snapshot.data!;
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ListView(
-              children: [
-                // Nome
-                ListTile(
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // 🪪 Nome
+              Card(
+                child: ListTile(
                   leading: const Icon(Icons.person),
-                  title: Text(perfil.nome),
-                  subtitle: const Text('Nome'),
+                  title: Text(perfil.nome, style: theme.textTheme.titleMedium),
+                  subtitle: const Text('Nome completo'),
                 ),
-                const Divider(),
+              ),
 
-                // Email
-                ListTile(
+              // 📧 Email
+              Card(
+                child: ListTile(
                   leading: const Icon(Icons.email),
                   title: Text(perfil.email),
-                  subtitle: const Text('E-mail'),
+                  subtitle: const Text('E-mail de cadastro'),
                 ),
-                const Divider(),
+              ),
 
-                // Tema com botão alternar
-                ListTile(
+              // 🎨 Tema
+              Card(
+                child: ListTile(
                   leading: const Icon(Icons.color_lens),
-                  title: Text(_isDarkTheme ? 'Escuro' : 'Claro'),
-                  subtitle: const Text('Tema'),
+                  title: const Text('Tema do App'),
+                  subtitle: Text(_isDarkTheme ? 'Escuro' : 'Claro'),
                   trailing: Switch(
                     value: _isDarkTheme,
                     onChanged: (val) => toggleTheme(),
                   ),
                 ),
-                const Divider(),
+              ),
 
-                // Projetos ativos
-                ListTile(
-                  leading: const Icon(Icons.bar_chart),
-                  title: Text(perfil.projetosAtivos.toString()),
-                  subtitle: const Text('Projetos Ativos'),
+              // 📊 Projetos ativos
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.workspaces_outline),
+                  title: Text('${perfil.projetosAtivos} projetos'),
+                  subtitle: const Text('Projetos ativos'),
                 ),
-                const Divider(),
+              ),
 
-                // Total investido
-                ListTile(
+              // 💰 Total investido
+              Card(
+                child: ListTile(
                   leading: const Icon(Icons.attach_money),
                   title: Text('R\$ ${perfil.totalInvestido.toStringAsFixed(2)}'),
-                  subtitle: const Text('Total Investido'),
+                  subtitle: const Text('Total investido'),
                 ),
-                const Divider(),
+              ),
 
-                // Botão editar perfil
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Editar Perfil'),
-                  onPressed: () {
-                    // TODO: Implementar tela de edição de perfil
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Funcionalidade ainda não implementada')),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
-                // Botão sair da conta (logout)
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.exit_to_app),
-                  label: const Text('Sair da Conta'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: logout,
+              // ✏️ Botão editar perfil (não implementado)
+              ElevatedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Funcionalidade ainda não implementada')),
+                  );
+                },
+                icon: const Icon(Icons.edit),
+                label: const Text('Editar Perfil'),
+                style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 🚪 Botão sair
+              ElevatedButton.icon(
+                onPressed: logout,
+                icon: const Icon(Icons.logout),
+                label: const Text('Sair da Conta'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  minimumSize: const Size.fromHeight(48),
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),
@@ -159,7 +166,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   }
 }
 
-// Modelo simples do perfil baseado no JSON esperado do backend
+/// Modelo de dados do perfil de usuário
 class UserProfile {
   final String nome;
   final String email;

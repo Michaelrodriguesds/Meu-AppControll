@@ -21,11 +21,13 @@ class ProjetoForm extends StatefulWidget {
 class _ProjetoFormState extends State<ProjetoForm> {
   final _formKey = GlobalKey<FormState>();
 
+  // Controladores dos campos
   late TextEditingController _tituloController;
   late TextEditingController _descricaoController;
   late TextEditingController _categoriaController;
   late TextEditingController _valorNecessarioController;
   late TextEditingController _valorAplicadoController;
+
   DateTime? _dataInicio;
 
   bool get isEdit => widget.projeto != null;
@@ -33,6 +35,8 @@ class _ProjetoFormState extends State<ProjetoForm> {
   @override
   void initState() {
     super.initState();
+
+    // Inicializa os controladores com os valores do projeto (se for edição)
     _tituloController = TextEditingController(text: widget.projeto?.titulo ?? '');
     _descricaoController = TextEditingController(text: widget.projeto?.descricao ?? '');
     _categoriaController = TextEditingController(text: widget.projeto?.categoria ?? '');
@@ -43,6 +47,20 @@ class _ProjetoFormState extends State<ProjetoForm> {
     _dataInicio = widget.projeto?.dataInicio ?? DateTime.now();
   }
 
+  /// Abre o seletor de data
+  Future<void> _pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _dataInicio!,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      setState(() => _dataInicio = date);
+    }
+  }
+
+  /// Valida e envia os dados para o backend
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -76,73 +94,121 @@ class _ProjetoFormState extends State<ProjetoForm> {
     }
   }
 
-  Future<void> _pickDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _dataInicio!,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (date != null) {
-      setState(() => _dataInicio = date);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+   
+
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Editar Projeto' : 'Novo Projeto')),
-      body: Padding(
+      appBar: AppBar(
+        title: Text(isEdit ? 'Editar Projeto' : 'Novo Projeto'),
+        backgroundColor: Colors.teal.shade700,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
+              // Campo: Título
               TextFormField(
                 controller: _tituloController,
-                decoration: const InputDecoration(labelText: 'Título'),
+                decoration: const InputDecoration(
+                  labelText: 'Título',
+                  prefixIcon: Icon(Icons.title),
+                ),
                 validator: (v) => v == null || v.isEmpty ? 'Informe o título' : null,
               ),
+
+              const SizedBox(height: 12),
+
+              // Campo: Descrição
               TextFormField(
                 controller: _descricaoController,
-                decoration: const InputDecoration(labelText: 'Descrição'),
+                decoration: const InputDecoration(
+                  labelText: 'Descrição',
+                  prefixIcon: Icon(Icons.description),
+                ),
+                maxLines: 2,
                 validator: (v) => v == null || v.isEmpty ? 'Informe a descrição' : null,
               ),
+
+              const SizedBox(height: 12),
+
+              // Campo: Categoria
               TextFormField(
                 controller: _categoriaController,
-                decoration: const InputDecoration(labelText: 'Categoria'),
+                decoration: const InputDecoration(
+                  labelText: 'Categoria',
+                  prefixIcon: Icon(Icons.category),
+                ),
                 validator: (v) => v == null || v.isEmpty ? 'Informe a categoria' : null,
               ),
+
+              const SizedBox(height: 12),
+
+              // Campo: Valor necessário
               TextFormField(
                 controller: _valorNecessarioController,
-                decoration: const InputDecoration(labelText: 'Valor necessário'),
+                decoration: const InputDecoration(
+                  labelText: 'Valor necessário',
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) =>
-                    v == null || double.tryParse(v) == null ? 'Valor inválido' : null,
+                validator: (v) => v == null || double.tryParse(v) == null
+                    ? 'Informe um valor válido'
+                    : null,
               ),
+
+              const SizedBox(height: 12),
+
+              // Campo: Valor aplicado
               TextFormField(
                 controller: _valorAplicadoController,
-                decoration: const InputDecoration(labelText: 'Valor aplicado'),
+                decoration: const InputDecoration(
+                  labelText: 'Valor aplicado',
+                  prefixIcon: Icon(Icons.account_balance_wallet),
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) =>
-                    v == null || double.tryParse(v) == null ? 'Valor inválido' : null,
+                validator: (v) => v == null || double.tryParse(v) == null
+                    ? 'Informe um valor válido'
+                    : null,
               ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 16),
+
+              // Campo: Data de início
               Row(
                 children: [
-                  const Text('Data de Início: '),
+                  const Icon(Icons.calendar_today, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Data de Início:'),
+                  const SizedBox(width: 12),
                   TextButton(
                     onPressed: _pickDate,
                     child: Text(
                       '${_dataInicio!.day}/${_dataInicio!.month}/${_dataInicio!.year}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _salvar,
-                child: Text(isEdit ? 'Salvar Alterações' : 'Criar Projeto'),
+
+              const SizedBox(height: 24),
+
+              // Botão: Salvar
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _salvar,
+                  icon: Icon(isEdit ? Icons.save : Icons.add),
+                  label: Text(isEdit ? 'Salvar Alterações' : 'Criar Projeto'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.teal,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
             ],
           ),
