@@ -1,49 +1,70 @@
+# Nome do aplicativo (deve seguir snake_case)
 name: meu_app_financas
-description: "A new Flutter project."
-publish_to: 'none' # Remova esta linha se quiser publicar no pub.dev
 
-version: 1.0.0+1
+# Descrição do projeto (aparece no pub.dev, se publicado)
+description: "Aplicativo de gerenciamento financeiro pessoal desenvolvido em Flutter com recursos completos de anotações, projetos e controle financeiro."
 
+# Não publicar no pub.dev (projeto privado)
+publish_to: 'none'
+
+# Versão do app (formato: versão+build)
+version: 1.1.0+2  # Atualizado para versão 1.1
+
+# Requisitos de ambiente
 environment:
-  sdk: ^3.8.1
+  sdk: ">=3.8.1 <4.0.0"  # Requer Dart SDK 3.8.1 ou superior
 
+# DEPENDÊNCIAS DE PRODUÇÃO (são incluídas no app final)
 dependencies:
   flutter:
-    sdk: flutter
+    sdk: flutter  # SDK do Flutter
 
-  # Ícones padrão do iOS
-  cupertino_icons: ^1.0.8
+  # Dependências principais
+  cupertino_icons: ^1.0.8  # Ícones no estilo iOS
+  http: ^1.4.0  # Cliente HTTP para APIs REST
+  intl: ^0.20.2  # Formatação de datas, números e moedas
+  google_fonts: ^6.3.0  # Tipografia personalizada
 
-  # Comunicação com API REST
-  http: ^1.4.0
+  # Para recursos de anotações
+  flutter_local_notifications: ^19.4.0  # Notificações locais
+  timezone: ^0.10.1  # Suporte a fuso horário
+  shared_preferences: ^2.2.2  # Armazenamento local
+  connectivity_plus: ^6.1.4  # Verificação de conexão
+  permission_handler: ^11.3.1  # <-- Adicione esta linha
+  
+  # Novas dependências para melhorias
+  flutter_slidable: ^3.0.0  # Para ações deslizáveis
+  pull_to_refresh: ^2.0.0  # Melhor pull-to-refresh
+  syncfusion_flutter_datepicker: ^30.2.4 # Seletores de data melhores
+  flutter_launcher_icons: ^0.13.1  # Personalização de ícones
 
-  # Formatação de datas e números
-  intl: ^0.20.2
-
-  # Tipografia do Google
-  google_fonts: ^6.3.0
-
-  # ✅ Notificações locais atualizadas (corrige bugs)
-  flutter_local_notifications: ^19.4.0
-
-  # ✅ Suporte a fuso horário para notificações agendadas
-  timezone: ^0.10.1
-
+# DEPENDÊNCIAS DE DESENVOLVIMENTO (usadas apenas no desenvolvimento/teste)
 dev_dependencies:
   flutter_test:
-    sdk: flutter
+    sdk: flutter  # Framework de testes nativo
+  
+  flutter_lints: ^6.0.0  # Regras de boas práticas
+  build_runner: ^2.4.6  # Para geração de código
+  mockito: ^5.4.2  # Para testes mockados
 
-  # Boas práticas de linting
-  flutter_lints: ^6.0.0
-
+# CONFIGURAÇÕES DO FLUTTER
 flutter:
-  uses-material-design: true
+  uses-material-design: true  # Ativa Material Design
 
-  # ✅ Imagens e fontes personalizadas (habilite se necessário)
-  # assets:
-  #   - assets/images/
+  # Fontes personalizadas (Poppins)
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
 
-  # fonts:
-  #   - family: MinhaFonte
-  #     fonts:
-  #       - asset: fonts/MinhaFonte-Regular.ttf
+# Configuração para geração de ícones personalizados (flutter_launcher_icons)
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"

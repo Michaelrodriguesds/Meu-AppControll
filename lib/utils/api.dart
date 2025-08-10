@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class Api {
-  static const baseUrl = 'http://10.0.0.102:8000';
-
+  static const baseUrl = 'https://meu-backend.herokuapp.com';
   static Future<dynamic> get(String endpoint) async {
     final response = await http.get(Uri.parse('$baseUrl$endpoint'));
     return _handleResponse(response);

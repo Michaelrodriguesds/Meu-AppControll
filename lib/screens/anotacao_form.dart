@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/anotacao_model.dart';
 import '../services/anotacao_service.dart';
+import '../utils/network_checker.dart';
+import '../utils/notificacao_service.dart';  // Import do serviço de notificações
 
+/// Formulário para criar ou editar uma anotação.
+/// Recebe o [usuarioId], [token] para autenticação e, opcionalmente, uma [anotacao] para edição.
 class AnotacaoForm extends StatefulWidget {
   final String usuarioId;
   final String token;
@@ -23,23 +27,31 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
   late TextEditingController _tituloController;
   late TextEditingController _conteudoController;
 
-  DateTime? _dataSelecionada; // Armazena a data escolhida para o lembrete
+  // Data da anotação (opcional)
+  DateTime? _dataSelecionada;
+
+  // Data e hora do lembrete (opcional)
+  DateTime? _lembreteSelecionado;
 
   @override
   void initState() {
     super.initState();
+
+    // Inicializa os controladores com os valores da anotação, se estiver no modo edição
     _tituloController = TextEditingController(text: widget.anotacao?.titulo ?? '');
     _conteudoController = TextEditingController(text: widget.anotacao?.conteudo ?? '');
-    _dataSelecionada = widget.anotacao?.data; // Preenche se for edição
+    _dataSelecionada = widget.anotacao?.data;
+    _lembreteSelecionado = widget.anotacao?.lembrete;
   }
 
-  // Exibe o seletor de data
+  /// Método para selecionar a data da anotação via date picker
   Future<void> _selecionarData() async {
     final agora = DateTime.now();
+
     final selecionada = await showDatePicker(
       context: context,
       initialDate: _dataSelecionada ?? agora,
-      firstDate: agora.subtract(const Duration(days: 0)),
+      firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
 
@@ -48,31 +60,99 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
     }
   }
 
-  // Salva anotação (novo ou edição)
+  /// Método para selecionar o lembrete, que envolve data e hora
+  Future<void> _selecionarLembrete() async {
+    final agora = DateTime.now();
+
+    // Seleciona a data primeiro
+    final data = await showDatePicker(
+      context: context,
+      initialDate: _lembreteSelecionado ?? agora,
+      firstDate: agora,
+      lastDate: DateTime(2100),
+    );
+
+    if (data == null) return;
+
+    // Em seguida, seleciona a hora
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_lembreteSelecionado ?? agora),
+    );
+
+    if (hora == null) return;
+
+    // Combina data e hora em um único DateTime
+    final lembreteCompleto = DateTime(
+      data.year,
+      data.month,
+      data.day,
+      hora.hour,
+      hora.minute,
+    );
+
+    setState(() => _lembreteSelecionado = lembreteCompleto);
+  }
+
+  /// Método para salvar a anotação, criando ou atualizando via serviço
   Future<void> _salvar() async {
+    // Verifica conexão de rede antes de tentar salvar
+    final conectado = await NetworkChecker.isOnline();
+    if (!conectado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sem conexão com a internet'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Valida o formulário
     if (!_formKey.currentState!.validate()) return;
 
+    // Monta o objeto anotação para envio
     final anotacao = Anotacao(
       id: widget.anotacao?.id,
       titulo: _tituloController.text,
       conteudo: _conteudoController.text,
-      data: _dataSelecionada ?? DateTime.now(),
+      data: _dataSelecionada,
+      lembrete: _lembreteSelecionado,
       usuarioId: widget.usuarioId,
     );
 
     try {
+      // Se é edição, atualiza, senão cria novo registro
       if (widget.anotacao == null) {
         await AnotacaoService.criar(anotacao, widget.token);
       } else {
         await AnotacaoService.atualizar(anotacao, widget.token);
       }
 
+      // Se o lembrete está definido e está no futuro, agenda a notificação
+      if (_lembreteSelecionado != null && _lembreteSelecionado!.isAfter(DateTime.now())) {
+        await NotificacaoService.agendarNotificacao(
+          'Lembrete: ${_tituloController.text}',
+          _conteudoController.text,
+          _lembreteSelecionado!,
+        );
+      }
+
+      // Volta para a tela anterior sinalizando sucesso
       Navigator.pop(context, true);
     } catch (e) {
+      // Mostra erro para o usuário
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar: $e')),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _conteudoController.dispose();
+    super.dispose();
   }
 
   @override
@@ -96,7 +176,7 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  // Campo Título
+                  // Campo título
                   TextFormField(
                     controller: _tituloController,
                     decoration: const InputDecoration(
@@ -106,9 +186,10 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
                     ),
                     validator: (v) => v == null || v.isEmpty ? 'Informe um título' : null,
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Campo Conteúdo
+                  // Campo conteúdo
                   TextFormField(
                     controller: _conteudoController,
                     decoration: const InputDecoration(
@@ -119,14 +200,15 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
                     maxLines: 5,
                     validator: (v) => v == null || v.isEmpty ? 'Informe o conteúdo' : null,
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Campo Lembrete (Data)
+                  // Seletor de data da anotação
                   ListTile(
                     onTap: _selecionarData,
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today, color: Colors.teal),
-                    title: const Text('Data do Lembrete'),
+                    leading: const Icon(Icons.event_note, color: Colors.teal),
+                    title: const Text('Data da Anotação'),
                     subtitle: Text(
                       _dataSelecionada != null
                           ? '${_dataSelecionada!.day}/${_dataSelecionada!.month}/${_dataSelecionada!.year}'
@@ -134,9 +216,28 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
                     ),
                     trailing: const Icon(Icons.edit_calendar),
                   ),
-                  const SizedBox(height: 20),
 
-                  // Botão Salvar
+                  const SizedBox(height: 16),
+
+                  // Seletor de lembrete (data e hora)
+                  ListTile(
+                    onTap: _selecionarLembrete,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.alarm, color: Colors.deepOrange),
+                    title: const Text('Lembrete (Opcional)'),
+                    subtitle: Text(
+                      _lembreteSelecionado != null
+                          ? '${_lembreteSelecionado!.day}/${_lembreteSelecionado!.month}/${_lembreteSelecionado!.year} às '
+                            '${_lembreteSelecionado!.hour.toString().padLeft(2, '0')}:' 
+                            '${_lembreteSelecionado!.minute.toString().padLeft(2, '0')}'
+                          : 'Nenhum lembrete agendado',
+                    ),
+                    trailing: const Icon(Icons.access_time),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Botão salvar
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(

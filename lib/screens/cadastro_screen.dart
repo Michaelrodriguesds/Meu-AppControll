@@ -20,7 +20,17 @@ class _CadastroScreenState extends State<CadastroScreen> {
   bool _isLoading = false;
   bool _mostrarSenha = false;
 
-  // Função para enviar dados ao backend
+  /// Exibe mensagem de feedback na tela (Snackbar)
+  void _mostrarMensagem(String mensagem, {Color cor = Colors.red}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: cor,
+      ),
+    );
+  }
+
+  /// Função para enviar dados ao backend
   Future<void> _cadastrarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -32,19 +42,17 @@ class _CadastroScreenState extends State<CadastroScreen> {
       'senha': senhaController.text.trim(),
     };
 
-    final sucesso = await UsuarioService.criarUsuario(usuario);
+    final resultado = await UsuarioService.criarUsuario(usuario);
 
     setState(() => _isLoading = false);
 
-    if (sucesso) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuário criado com sucesso!')),
-      );
-      Navigator.pop(context); // Retorna à tela de login
+    if (resultado == true) {
+      _mostrarMensagem('Usuário criado com sucesso!', cor: Colors.green);
+      Navigator.pop(context); // Volta para tela de login
+    } else if (resultado == 'email_ja_cadastrado') {
+      _mostrarMensagem('Este e-mail já está cadastrado.');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao criar usuário')),
-      );
+      _mostrarMensagem('Erro ao criar usuário. Tente novamente.');
     }
   }
 
@@ -63,7 +71,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // Cabeçalho com mensagem
               Text(
                 'Vamos começar!',
                 style: GoogleFonts.poppins(
@@ -129,7 +136,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Botão de envio
+              // Botão Criar Conta
               _isLoading
                   ? const CircularProgressIndicator()
                   : SizedBox(

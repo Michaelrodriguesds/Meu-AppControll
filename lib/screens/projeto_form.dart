@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/projeto_model.dart';
 import '../services/projeto_service.dart';
+import '../utils/network_checker.dart';
 
+/// Tela de formulário para criar/editar projetos
 class ProjetoForm extends StatefulWidget {
   final String token;
   final String usuarioId;
@@ -20,23 +22,21 @@ class ProjetoForm extends StatefulWidget {
 
 class _ProjetoFormState extends State<ProjetoForm> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controladores dos campos
   late TextEditingController _tituloController;
   late TextEditingController _descricaoController;
   late TextEditingController _categoriaController;
   late TextEditingController _valorNecessarioController;
   late TextEditingController _valorAplicadoController;
-
   DateTime? _dataInicio;
+  bool _isLoading = false;
 
+  /// Verifica se está no modo edição
   bool get isEdit => widget.projeto != null;
 
   @override
   void initState() {
     super.initState();
-
-    // Inicializa os controladores com os valores do projeto (se for edição)
+    // Inicializa controladores com valores atuais (se edição)
     _tituloController = TextEditingController(text: widget.projeto?.titulo ?? '');
     _descricaoController = TextEditingController(text: widget.projeto?.descricao ?? '');
     _categoriaController = TextEditingController(text: widget.projeto?.categoria ?? '');
@@ -47,7 +47,7 @@ class _ProjetoFormState extends State<ProjetoForm> {
     _dataInicio = widget.projeto?.dataInicio ?? DateTime.now();
   }
 
-  /// Abre o seletor de data
+  /// 📅 Abre o seletor de data
   Future<void> _pickDate() async {
     final date = await showDatePicker(
       context: context,
@@ -60,14 +60,31 @@ class _ProjetoFormState extends State<ProjetoForm> {
     }
   }
 
-  /// Valida e envia os dados para o backend
+  /// 💾 Valida e salva o projeto
   Future<void> _salvar() async {
+    // Valida formulário
     if (!_formKey.currentState!.validate()) return;
 
+    // Verifica conexão
+    final conectado = await NetworkChecker.isOnline();
+    if (!conectado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sem conexão com a internet'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // Cálculos financeiros
     final vn = double.tryParse(_valorNecessarioController.text) ?? 0.0;
     final va = double.tryParse(_valorAplicadoController.text) ?? 0.0;
     final progresso = vn == 0 ? 0.0 : (va / vn) * 100.0;
 
+    // Cria objeto Projeto
     final projeto = Projeto(
       id: widget.projeto?.id,
       titulo: _tituloController.text,
@@ -81,23 +98,30 @@ class _ProjetoFormState extends State<ProjetoForm> {
     );
 
     try {
-      if (isEdit) {
-        await ProjetoService.atualizarProjeto(projeto, widget.token);
-      } else {
-        await ProjetoService.criarProjeto(projeto, widget.token);
-      }
-      Navigator.pop(context, true);
-    } catch (e) {
+      // Chama o serviço apropriado (criação ou edição)
+      final resultado = isEdit 
+          ? await ProjetoService.atualizarProjeto(projeto, widget.token)
+          : await ProjetoService.criarProjeto(projeto, widget.token);
+
+      // Mostra feedback
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar: $e')),
+        SnackBar(
+          content: Text(resultado['message']),
+          backgroundColor: resultado['success'] ? Colors.green : Colors.red,
+        ),
       );
+
+      // Fecha a tela se sucesso
+      if (resultado['success']) {
+        Navigator.pop(context, true);
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-   
-
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? 'Editar Projeto' : 'Novo Projeto'),
@@ -109,7 +133,7 @@ class _ProjetoFormState extends State<ProjetoForm> {
           key: _formKey,
           child: Column(
             children: [
-              // Campo: Título
+              // CAMPO TÍTULO
               TextFormField(
                 controller: _tituloController,
                 decoration: const InputDecoration(
@@ -118,10 +142,9 @@ class _ProjetoFormState extends State<ProjetoForm> {
                 ),
                 validator: (v) => v == null || v.isEmpty ? 'Informe o título' : null,
               ),
-
               const SizedBox(height: 12),
 
-              // Campo: Descrição
+              // CAMPO DESCRIÇÃO
               TextFormField(
                 controller: _descricaoController,
                 decoration: const InputDecoration(
@@ -131,10 +154,9 @@ class _ProjetoFormState extends State<ProjetoForm> {
                 maxLines: 2,
                 validator: (v) => v == null || v.isEmpty ? 'Informe a descrição' : null,
               ),
-
               const SizedBox(height: 12),
 
-              // Campo: Categoria
+              // CAMPO CATEGORIA
               TextFormField(
                 controller: _categoriaController,
                 decoration: const InputDecoration(
@@ -143,10 +165,9 @@ class _ProjetoFormState extends State<ProjetoForm> {
                 ),
                 validator: (v) => v == null || v.isEmpty ? 'Informe a categoria' : null,
               ),
-
               const SizedBox(height: 12),
 
-              // Campo: Valor necessário
+              // CAMPO VALOR NECESSÁRIO
               TextFormField(
                 controller: _valorNecessarioController,
                 decoration: const InputDecoration(
@@ -158,10 +179,9 @@ class _ProjetoFormState extends State<ProjetoForm> {
                     ? 'Informe um valor válido'
                     : null,
               ),
-
               const SizedBox(height: 12),
 
-              // Campo: Valor aplicado
+              // CAMPO VALOR APLICADO
               TextFormField(
                 controller: _valorAplicadoController,
                 decoration: const InputDecoration(
@@ -173,10 +193,9 @@ class _ProjetoFormState extends State<ProjetoForm> {
                     ? 'Informe um valor válido'
                     : null,
               ),
-
               const SizedBox(height: 16),
 
-              // Campo: Data de início
+              // CAMPO DATA
               Row(
                 children: [
                   const Icon(Icons.calendar_today, size: 20),
@@ -192,20 +211,20 @@ class _ProjetoFormState extends State<ProjetoForm> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
 
-              // Botão: Salvar
+              // BOTÃO SALVAR
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _salvar,
+                  onPressed: _isLoading ? null : _salvar,
                   icon: Icon(isEdit ? Icons.save : Icons.add),
                   label: Text(isEdit ? 'Salvar Alterações' : 'Criar Projeto'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: Colors.teal,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                     textStyle: const TextStyle(fontSize: 16),
                   ),
                 ),

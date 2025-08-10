@@ -3,8 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 
 class UsuarioService {
-  static const baseUrl = 'http://10.0.0.101:8000/api';
-
+  static const baseUrl = 'https://backendapp-0bcg.onrender.com/api';
   static Future<Usuario> obterPerfil(String token) async {
     final res = await http.get(
       Uri.parse('$baseUrl/users/profile/'),

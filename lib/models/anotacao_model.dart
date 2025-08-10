@@ -1,23 +1,29 @@
 // ignore_for_file: unnecessary_null_comparison
 
-class Anotacao {
-  final String? id;
-  final String? titulo;
-  final String? conteudo;
-  final DateTime? data;
-  final String usuarioId;
+import 'package:intl/intl.dart';
 
+/// Modelo que representa uma anotação com suporte a lembrete agendado.
+class Anotacao {
+  final String? id;             // ID da anotação (pode ser null para novas anotações)
+  final String? titulo;         // Título da anotação
+  final String? conteudo;       // Conteúdo da anotação
+  final DateTime? data;         // Data associada à anotação (ex: criação ou agendamento)
+  final DateTime? lembrete;     // ⏰ Lembrete/agendamento da anotação
+  final String usuarioId;       // ID do usuário associado à anotação
+
+  /// Construtor principal
   Anotacao({
     this.id,
     required this.usuarioId,
     this.titulo,
     this.conteudo,
     this.data,
+    this.lembrete,
   });
 
-  /// Construtor de fábrica para criar uma instância a partir de um JSON
+  /// Construtor de fábrica para criar uma anotação a partir de um JSON
   factory Anotacao.fromJson(Map<String, dynamic> json) {
-    // 📌 Tenta extrair o ID, seja ele normal ou no formato MongoDB
+    // 📌 Extrai o ID da anotação com suporte a diferentes formatos (MongoDB etc.)
     String? idExtraido;
 
     if (json['id'] != null) {
@@ -28,6 +34,7 @@ class Anotacao {
       idExtraido = json['_id'].toString();
     }
 
+    // Verifica se o ID foi extraído corretamente
     if (idExtraido == null || idExtraido.isEmpty) {
       throw Exception('ID da anotação ausente ou inválido: $json');
     }
@@ -38,20 +45,27 @@ class Anotacao {
       titulo: json['title'] ?? json['titulo'],
       conteudo: json['content'] ?? json['conteudo'],
       data: _parseDate(json['date'] ?? json['data']),
+      lembrete: _parseDate(json['reminder_at'] ?? json['lembrete']),
     );
   }
 
-  /// Método para converter a anotação em um JSON
+  /// Converte a instância da anotação em um mapa JSON para envio à API
   Map<String, dynamic> toJson() {
-    return {
+    final Map<String, dynamic> map = {
       'title': titulo,
       'content': conteudo,
       'date': data?.toIso8601String(),
       'user_id': usuarioId,
     };
+
+    if (lembrete != null) {
+      map['reminder_at'] = lembrete!.toIso8601String();
+    }
+
+    return map;
   }
 
-  /// Utilitário para parse seguro de datas em diferentes formatos
+  /// Método auxiliar para fazer parse de diferentes formatos de data
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
 
@@ -72,5 +86,11 @@ class Anotacao {
     }
 
     return null;
+  }
+
+  /// Formata a data do lembrete para exibição legível (ex: 08/08/2025 14:00)
+  String? get lembreteFormatado {
+    if (lembrete == null) return null;
+    return DateFormat('dd/MM/yyyy HH:mm').format(lembrete!);
   }
 }

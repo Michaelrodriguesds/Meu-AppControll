@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/usuario_service.dart';
+import '../utils/network_checker.dart'; // ✅ Importa verificador de internet
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -14,41 +16,84 @@ class _LoginScreenState extends State<LoginScreen> {
   bool mostrarSenha = false;
   bool _isLoading = false;
 
-  // Função de login com feedback visual
-  Future<void> _realizarLogin() async {
-    setState(() => _isLoading = true);
+  @override
+  void initState() {
+    super.initState();
+    _carregarEmailSalvo(); // ✅ Carrega e-mail salvo no SharedPreferences
+  }
 
+  /// ✅ Recupera e preenche o e-mail salvo localmente
+  Future<void> _carregarEmailSalvo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final emailSalvo = prefs.getString('email_salvo') ?? '';
+    _usuarioController.text = emailSalvo;
+  }
+
+  /// ✅ Salva o e-mail após login bem-sucedido
+  Future<void> _salvarEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('email_salvo', email);
+  }
+
+  /// ✅ Realiza login com tratamento de erros e conexão
+  Future<void> _realizarLogin() async {
     final email = _usuarioController.text.trim();
     final senha = _senhaController.text.trim();
 
-    final loginData = await UsuarioService.loginComUsuario(email, senha);
-
-    setState(() => _isLoading = false);
-
-    if (loginData != null) {
-      final token = loginData['token'];
-      final usuarioId = loginData['usuarioId'];
-
-      // Navega para tela principal com os dados do login
-      Navigator.pushReplacementNamed(
-        context,
-        '/home',
-        arguments: {'token': token, 'usuarioId': usuarioId},
-      );
-    } else {
-      // Exibe erro se login falhar
+    // ✅ Verifica conexão com a internet
+    final online = await NetworkChecker.isOnline();
+    if (!online) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Usuário ou senha inválidos'),
-          backgroundColor: Colors.redAccent,
+          content: Text('Sem conexão com a internet'),
+          backgroundColor: Colors.orange,
         ),
       );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final loginData = await UsuarioService.loginComUsuario(email, senha);
+
+      if (loginData != null) {
+        final token = loginData['token'];
+        final usuarioId = loginData['usuarioId'];
+
+        await _salvarEmail(email); // ✅ Salva o e-mail localmente
+
+        // ✅ Navega para tela principal
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: {'token': token, 'usuarioId': usuarioId},
+        );
+      } else {
+        // ✅ Erro de credenciais inválidas
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Usuário ou senha inválidos'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      // ✅ Erro de rede ou inesperado
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro ao realizar login. Verifique sua conexão.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = const Color(0xFF00875F); // Verde escuro para finanças
+    final primaryColor = const Color(0xFF00875F); // Verde escuro
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -58,11 +103,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              // Logo customizada (substitua por sua imagem local se quiser)
+              // ✅ Ícone do app
               Icon(Icons.account_balance_wallet_rounded, size: 80, color: primaryColor),
               const SizedBox(height: 24),
 
-              // Título estilizado
+              // ✅ Título
               Text(
                 'Bem-vindo de volta!',
                 style: GoogleFonts.poppins(
@@ -74,6 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
 
+              // ✅ Subtítulo
               Text(
                 'Faça login para acessar seus projetos financeiros.',
                 style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[700]),
@@ -81,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Campo de usuário
+              // ✅ Campo de e-mail
               TextField(
                 controller: _usuarioController,
                 decoration: InputDecoration(
@@ -92,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Campo de senha com alternador de visibilidade
+              // ✅ Campo de senha com toggle
               TextField(
                 controller: _senhaController,
                 obscureText: !mostrarSenha,
@@ -110,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Botão de login ou indicador de carregamento
+              // ✅ Botão de login ou indicador de carregamento
               _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.teal))
                   : ElevatedButton.icon(
@@ -128,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
               const SizedBox(height: 16),
 
-              // Botão de cadastro
+              // ✅ Botão de criação de conta
               TextButton(
                 onPressed: () => Navigator.pushNamed(context, '/cadastro'),
                 child: const Text('Criar nova conta'),

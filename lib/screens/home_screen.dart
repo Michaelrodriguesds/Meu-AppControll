@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../services/usuario_service.dart';
 import '../services/projeto_service.dart';
 import 'configuracoes_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Importa o serviço de notificações
+import 'package:meu_app_financas/utils/notificacao_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final String token;
@@ -23,18 +27,40 @@ class _HomeScreenState extends State<HomeScreen> {
   String temaUsuario = '';
   bool carregando = true;
   bool erro = false;
+  bool valoresOcultos = true; // Inicia oculto
 
   double totalInvestido = 0.0;
   int totalProjetos = 0;
 
+  // Chave para armazenar preferência de privacidade
+  static const String _prefPrivacidadeKey = 'privacidade_ativada';
+
   @override
   void initState() {
     super.initState();
-    carregarUsuario();
-    carregarProjetos();
+
+    // Dispara notificação de teste ao abrir a tela
+    NotificacaoService.mostrarNotificacaoTeste();
+
+    // Carrega preferências, depois os dados do usuário e projetos
+    _carregarPreferencias().then((_) {
+      carregarUsuario();
+      carregarProjetos();
+    });
   }
 
-  // Carrega dados do usuário
+  Future<void> _carregarPreferencias() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      valoresOcultos = prefs.getBool(_prefPrivacidadeKey) ?? true;
+    });
+  }
+
+  Future<void> _salvarPreferenciaPrivacidade(bool oculto) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefPrivacidadeKey, oculto);
+  }
+
   Future<void> carregarUsuario() async {
     try {
       final usuario = await UsuarioService.getUsuarioPorId(widget.usuarioId);
@@ -63,32 +89,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Carrega e soma os valores dos projetos do usuário
- Future<void> carregarProjetos() async {
-  try {
-    final projetos = await ProjetoService.getProjetos(token: widget.token);
-    double soma = 0.0;
+  Future<void> carregarProjetos() async {
+    try {
+      final projetos = await ProjetoService.getProjetos(token: widget.token);
+      double soma = 0.0;
 
-    for (var projeto in projetos) {
-      // valorAplicado nunca será nulo, então não precisamos do ?? 0.0
-      soma += projeto.valorAplicado;
+      for (var projeto in projetos) {
+        soma += projeto.valorAplicado;
+      }
+
+      setState(() {
+        totalProjetos = projetos.length;
+        totalInvestido = soma;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar projetos: $e')),
+      );
+      print('Erro ao carregar projetos: $e');
     }
-
-    setState(() {
-      totalProjetos = projetos.length;
-      totalInvestido = soma;
-    });
-  } catch (e) {
-    // Aqui você pode exibir um erro com SnackBar se quiser alertar o usuário
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erro ao carregar projetos: $e')),
-    );
-    print('Erro ao carregar projetos: $e');
   }
-}
 
-
-  // Exibe snackbar de erro
   void mostrarErro(String mensagem) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -99,7 +120,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Confirmação de logout
+  void alternarVisibilidadeValores() {
+    setState(() {
+      valoresOcultos = !valoresOcultos;
+    });
+    _salvarPreferenciaPrivacidade(valoresOcultos);
+  }
+
+  Future<void> _atualizarTela() async {
+    await Future.wait([
+      carregarUsuario(),
+      carregarProjetos(),
+    ]);
+  }
+
   void confirmarLogout() {
     showDialog(
       context: context,
@@ -186,102 +220,120 @@ class _HomeScreenState extends State<HomeScreen> {
           ? const Center(child: CircularProgressIndicator())
           : erro
               ? const Center(
-                  child: Text('Erro ao carregar dados.\nTente novamente.', textAlign: TextAlign.center),
+                  child: Text(
+                    'Erro ao carregar dados.\nTente novamente.',
+                    textAlign: TextAlign.center,
+                  ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    // DASHBOARD FINANCEIRO
-                    Card(
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Resumo Financeiro',
-                                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                _DashboardCard(
-                                  icon: Icons.attach_money,
-                                  label: 'Total Investido',
-                                  value: 'R\$ ${totalInvestido.toStringAsFixed(2)}',
-                                  color: Colors.green,
-                                ),
-                                const SizedBox(width: 12),
-                                _DashboardCard(
-                                  icon: Icons.flag,
-                                  label: 'Projetos',
-                                  value: totalProjetos.toString(),
-                                  color: Colors.blue,
-                                ),
-                              ],
-                            ),
-                          ],
+              : RefreshIndicator(
+                  onRefresh: _atualizarTela,
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // DASHBOARD FINANCEIRO
+                      Card(
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Resumo Financeiro',
+                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                                  IconButton(
+                                    icon: Icon(
+                                      valoresOcultos ? Icons.visibility_off : Icons.visibility,
+                                      size: 20,
+                                    ),
+                                    onPressed: alternarVisibilidadeValores,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  _DashboardCard(
+                                    icon: Icons.attach_money,
+                                    label: 'Total Investido',
+                                    value: valoresOcultos ? '•••••' : 'R\$ ${totalInvestido.toStringAsFixed(2)}',
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _DashboardCard(
+                                    icon: Icons.flag,
+                                    label: 'Projetos',
+                                    value: totalProjetos.toString(),
+                                    color: Colors.blue,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
+                      const SizedBox(height: 30),
 
-                    // AÇÕES RÁPIDAS
-                    Text('Ações Rápidas',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    _ActionCard(
-                      icon: Icons.add_circle,
-                      title: 'Novo Projeto',
-                      subtitle: 'Crie um novo projeto com metas.',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        '/projeto_form',
-                        arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
+                      // AÇÕES RÁPIDAS
+                      Text('Ações Rápidas',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      _ActionCard(
+                        icon: Icons.add_circle,
+                        title: 'Novo Projeto',
+                        subtitle: 'Crie um novo projeto com metas.',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/projeto_form',
+                          arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _ActionCard(
-                      icon: Icons.note_add,
-                      title: 'Nova Anotação',
-                      subtitle: 'Salve lembretes ou ideias.',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        '/anotacao_form',
-                        arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
+                      const SizedBox(height: 12),
+                      _ActionCard(
+                        icon: Icons.note_add,
+                        title: 'Nova Anotação',
+                        subtitle: 'Salve lembretes ou ideias.',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/anotacao_form',
+                          arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
+                      const SizedBox(height: 30),
 
-                    // LINKS ÚTEIS
-                    _LinkTile(
-                      icon: Icons.folder,
-                      label: 'Ver Projetos',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        '/projetos',
-                        arguments: {'token': widget.token},
+                      // LINKS ÚTEIS
+                      _ActionCard(
+                        icon: Icons.folder,
+                        title: 'Ver Projetos',
+                        subtitle: 'Visualize todos os seus projetos',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/projetos',
+                          arguments: {'token': widget.token},
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    _LinkTile(
-                      icon: Icons.note,
-                      label: 'Ver Anotações',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        '/anotacoes',
-                        arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
+                      const SizedBox(height: 12),
+                      _ActionCard(
+                        icon: Icons.note,
+                        title: 'Ver Anotações',
+                        subtitle: 'Acesse suas anotações salvas',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/anotacoes',
+                          arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
+                    ],
+                  ),
                 ),
     );
   }
 }
 
-// COMPONENTES REUTILIZÁVEIS
-
+// Widget para cartão de dashboard
 class _DashboardCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -298,35 +350,28 @@ class _DashboardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: color.withAlpha(26),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withAlpha(77)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 13)),
-          ],
+      child: Card(
+        color: color.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 30),
+              const SizedBox(height: 10),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 16)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+// Widget para cartões de ação
 class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -343,42 +388,15 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.teal.shade100,
-          child: Icon(icon, color: Colors.teal.shade800),
-        ),
+        leading: Icon(icon, color: Colors.teal.shade700),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
-    );
-  }
-}
-
-class _LinkTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _LinkTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      tileColor: Colors.grey.shade100,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      leading: Icon(icon, color: Colors.teal.shade700),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-      onTap: onTap,
     );
   }
 }
