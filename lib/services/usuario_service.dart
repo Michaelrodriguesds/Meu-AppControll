@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 /// Classe de serviço para lidar com autenticação e cadastro de usuários.
 class UsuarioService {
   // URL base do seu backend (ajuste se necessário)
-  static const String baseUrl = 'https://seu-backend.onrender.com/api';
+  static const String baseUrl = 'https://backendapp-0bcg.onrender.com/api';
   /// ===============================
   /// ✅ Função: Criar um novo usuário
   /// ===============================
