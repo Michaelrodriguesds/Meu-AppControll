@@ -4,8 +4,7 @@ import '../services/projeto_service.dart';
 import 'configuracoes_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Importa o serviço de notificações
-import 'package:meu_app_financas/utils/notificacao_service.dart';
+// Import 'notificacao_service.dart' removido pois não está sendo usado no código atual
 
 class HomeScreen extends StatefulWidget {
   final String token;
@@ -39,13 +38,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // Dispara notificação de teste ao abrir a tela
-    NotificacaoService.mostrarNotificacaoTeste();
-
+  
     // Carrega preferências, depois os dados do usuário e projetos
-    _carregarPreferencias().then((_) {
-      carregarUsuario();
-      carregarProjetos();
+    _carregarPreferencias().then((_) async {
+      await carregarUsuario();
+      await carregarProjetos();
+
+      // TODO: Implemente aqui a lógica real para agendar notificações programadas
+      await _agendarNotificacoesProgramadas();
     });
   }
 
@@ -103,10 +103,11 @@ class _HomeScreenState extends State<HomeScreen> {
         totalInvestido = soma;
       });
     } catch (e) {
+      // Troquei print por debugPrint para melhor prática em Flutter
+      debugPrint('Erro ao carregar projetos: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao carregar projetos: $e')),
       );
-      print('Erro ao carregar projetos: $e');
     }
   }
 
@@ -155,6 +156,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  /// Este método deve verificar suas datas e horários agendados,
+  /// e disparar as notificações apenas nesses momentos.
+  /// Aqui, estou deixando como um TODO para você implementar conforme sua lógica.
+  Future<void> _agendarNotificacoesProgramadas() async {
+    // TODO: Implemente aqui a lógica real para agendar notificações
   }
 
   @override
@@ -351,7 +359,9 @@ class _DashboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Card(
-        color: color.withOpacity(0.1),
+        // Ajuste para evitar uso depreciado de withOpacity
+        // Usando withAlpha, alpha de 25% equivale a 64 em hexadecimal (255*0.25=~64)
+        color: color.withAlpha(64),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
         child: Padding(

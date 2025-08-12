@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/anotacao_model.dart';
 import '../services/anotacao_service.dart';
 import '../utils/network_checker.dart';
-import '../utils/notificacao_service.dart';  // Import do serviço de notificações
+import '../utils/notificacao_service.dart';
 
 /// Formulário para criar ou editar uma anotação.
 /// Recebe o [usuarioId], [token] para autenticação e, opcionalmente, uma [anotacao] para edição.
@@ -37,14 +37,14 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
   void initState() {
     super.initState();
 
-    // Inicializa os controladores com os valores da anotação, se estiver no modo edição
+    // Inicializa controladores com valores atuais da anotação para edição
     _tituloController = TextEditingController(text: widget.anotacao?.titulo ?? '');
     _conteudoController = TextEditingController(text: widget.anotacao?.conteudo ?? '');
     _dataSelecionada = widget.anotacao?.data;
     _lembreteSelecionado = widget.anotacao?.lembrete;
   }
 
-  /// Método para selecionar a data da anotação via date picker
+  /// Seleciona a data da anotação via date picker
   Future<void> _selecionarData() async {
     final agora = DateTime.now();
 
@@ -60,7 +60,7 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
     }
   }
 
-  /// Método para selecionar o lembrete, que envolve data e hora
+  /// Seleciona o lembrete, combinando data e hora via pickers
   Future<void> _selecionarLembrete() async {
     final agora = DateTime.now();
 
@@ -74,7 +74,7 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
 
     if (data == null) return;
 
-    // Em seguida, seleciona a hora
+    // Seleciona a hora em seguida
     final hora = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_lembreteSelecionado ?? agora),
@@ -94,7 +94,8 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
     setState(() => _lembreteSelecionado = lembreteCompleto);
   }
 
-  /// Método para salvar a anotação, criando ou atualizando via serviço
+  /// Salva a anotação, criando ou atualizando via serviço.
+  /// Também agenda notificação se lembrete estiver definido e for futuro.
   Future<void> _salvar() async {
     // Verifica conexão de rede antes de tentar salvar
     final conectado = await NetworkChecker.isOnline();
@@ -108,10 +109,10 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
       return;
     }
 
-    // Valida o formulário
+    // Valida formulário
     if (!_formKey.currentState!.validate()) return;
 
-    // Monta o objeto anotação para envio
+    // Cria objeto anotação para enviar ao serviço
     final anotacao = Anotacao(
       id: widget.anotacao?.id,
       titulo: _tituloController.text,
@@ -122,23 +123,28 @@ class _AnotacaoFormState extends State<AnotacaoForm> {
     );
 
     try {
-      // Se é edição, atualiza, senão cria novo registro
+      // Cria ou atualiza anotação via serviço
       if (widget.anotacao == null) {
         await AnotacaoService.criar(anotacao, widget.token);
       } else {
         await AnotacaoService.atualizar(anotacao, widget.token);
       }
 
-      // Se o lembrete está definido e está no futuro, agenda a notificação
+      // Agenda notificação se lembrete definido e no futuro
       if (_lembreteSelecionado != null && _lembreteSelecionado!.isAfter(DateTime.now())) {
-        await NotificacaoService.agendarNotificacao(
-          'Lembrete: ${_tituloController.text}',
-          _conteudoController.text,
-          _lembreteSelecionado!,
-        );
+        try {
+          await NotificacaoService.agendarNotificacao(
+            'Lembrete: ${_tituloController.text}',
+            _conteudoController.text,
+            _lembreteSelecionado!,
+          );
+        } catch (e) {
+          // Log do erro no agendamento, mas não impede salvar
+          debugPrint('Erro ao agendar notificação: $e');
+        }
       }
 
-      // Volta para a tela anterior sinalizando sucesso
+      // Volta para tela anterior com sucesso
       Navigator.pop(context, true);
     } catch (e) {
       // Mostra erro para o usuário

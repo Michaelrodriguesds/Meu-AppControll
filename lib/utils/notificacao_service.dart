@@ -5,30 +5,34 @@ import 'package:permission_handler/permission_handler.dart';
 
 class NotificacaoService {
   // Instância única do plugin de notificações locais
-  static final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
 
-  // Inicializa o serviço de notificações, incluindo permissões e timezones
+  // Flag para garantir inicialização única
+  static bool _inicializado = false;
+
+  /// Inicializa o serviço de notificações:
+  /// - Configura timezone
+  /// - Inicializa o plugin com configurações para Android e iOS
+  /// - Solicita permissões necessárias
   static Future<void> init() async {
-    // Inicializa os dados de timezones para agendamento correto
+    if (_inicializado) return; // evita múltiplas inicializações
+
+    // Inicializa dados de timezone para agendamento correto
     tz.initializeTimeZones();
 
-    // Configuração específica para Android (ícone padrão)
+    // Configuração Android: ícone padrão
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Configuração específica para iOS
+    // Configuração iOS
     const iosSettings = DarwinInitializationSettings();
 
-    // Configuração geral que agrupa Android e iOS
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+    // Configuração geral
+    const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
 
-    // Inicializa o plugin com as configurações definidas
+    // Inicializa o plugin de notificações locais
     await _plugin.initialize(initSettings);
 
-    // Solicita permissão para notificações (se ainda não concedida)
+    // Solicita permissão de notificações no dispositivo (se negado, pede novamente)
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
     }
@@ -38,50 +42,59 @@ class NotificacaoService {
         .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
 
-    // Solicita permissão para alarmes exatos no Android (Android 12+)
+    // Solicita permissão para alarmes exatos no Android 12+
     await _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestExactAlarmsPermission();
+
+    _inicializado = true;
   }
 
-  // Agenda uma notificação para um horário futuro definido
-  static Future<void> agendarNotificacao(
-  String titulo,
-  String conteudo,
-  DateTime horario,
-) async {
-  if (horario.isBefore(DateTime.now())) {
-    throw Exception('Não é possível agendar no passado.');
+  /// Agenda uma notificação para o horário futuro definido.
+  /// Lança exceção se tentar agendar no passado ou se serviço não inicializado.
+  static Future<void> agendarNotificacao(String titulo, String conteudo, DateTime horario) async {
+    if (!_inicializado) {
+      throw Exception('NotificacaoService não inicializado. Chame init() antes.');
+    }
+
+    if (horario.isBefore(DateTime.now())) {
+      throw Exception('Não é possível agendar no passado.');
+    }
+
+    final dataAgendada = tz.TZDateTime.from(horario, tz.local);
+
+    const detalhes = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'canal_lembrete_v2',
+        'Lembretes',
+        channelDescription: 'Canal para lembretes agendados',
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+
+    // Gera um ID único baseado no timestamp atual em segundos
+    final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    // Agendamento da notificação corrigido para a nova assinatura da função zonedSchedule
+    await _plugin.zonedSchedule(
+      id,
+      titulo,
+      conteudo,
+      dataAgendada,
+      detalhes,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: null, // para agendamento único, sem repetição
+    );
   }
 
-  final dataAgendada = tz.TZDateTime.from(horario, tz.local);
-
-  const detalhes = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'canal_lembrete_v2',
-      'Lembretes',
-      channelDescription: 'Canal para lembretes agendados',
-      importance: Importance.max,
-      priority: Priority.high,
-    ),
-    iOS: DarwinNotificationDetails(),
-  );
-
-  final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-  await _plugin.zonedSchedule(
-    id,
-    titulo,
-    conteudo,
-    dataAgendada,
-    detalhes,
-    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-  );
-}
-
-
-  // Método para mostrar uma notificação de teste instantaneamente
+  /// Exibe uma notificação instantânea de teste para verificar se o serviço está funcionando.
   static Future<void> mostrarNotificacaoTeste() async {
+    if (!_inicializado) {
+      throw Exception('NotificacaoService não inicializado. Chame init() antes.');
+    }
+
     const detalhes = NotificationDetails(
       android: AndroidNotificationDetails(
         'canal_teste',
@@ -93,7 +106,6 @@ class NotificacaoService {
       iOS: DarwinNotificationDetails(),
     );
 
-    // Exibe a notificação imediatamente com ID fixo
     await _plugin.show(
       9999,
       'Teste de Notificação',
