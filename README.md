@@ -31,13 +31,13 @@ Além disso, o app conta com:
 ## 🖼️ Screenshots
 
 <p align="center">
-  <img src="assets/screenshots/login.jpg" width="200">
-  <img src="assets/screenshots/conta.jpg" width="200">
-  <img src="assets/screenshots/home.jpg" width="200">
-  <img src="assets/screenshots/criar_projeto.jpg" width="200">
-  <img src="assets/screenshots/criar_anotacao.jpg" width="200">
-  <img src="assets/screenshots/projetos.jpg" width="200">
-  <img src="assets/screenshots/anotacoes.jpg" width="200">
+  <img src="assets/screenshots/login.jpeg" width="200">
+  <img src="assets/screenshots/conta.jpeg" width="200">
+  <img src="assets/screenshots/home.jpeg" width="200">
+  <img src="assets/screenshots/criar_projeto.jpeg" width="200">
+  <img src="assets/screenshots/criar_anotacao.jpeg" width="200">
+  <img src="assets/screenshots/projetos.jpeg" width="200">
+  <img src="assets/screenshots/anotacoes.jpeg" width="200">
 </p>
 
 ---
