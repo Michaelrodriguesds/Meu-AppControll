@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/projeto_model.dart';
 import '../services/projeto_service.dart';
 import '../utils/network_checker.dart';
 
-/// Tela de formulário para criar/editar projetos
 class ProjetoForm extends StatefulWidget {
-  final String token;
-  final String usuarioId;
+  final String   token;
+  final String   usuarioId;
   final Projeto? projeto;
 
   const ProjetoForm({
-    Key? key,
+    super.key,
     required this.token,
     required this.usuarioId,
     this.projeto,
-  }) : super(key: key);
+  });
 
   @override
   State<ProjetoForm> createState() => _ProjetoFormState();
@@ -22,217 +22,253 @@ class ProjetoForm extends StatefulWidget {
 
 class _ProjetoFormState extends State<ProjetoForm> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _tituloController;
-  late TextEditingController _descricaoController;
-  late TextEditingController _categoriaController;
-  late TextEditingController _valorNecessarioController;
-  late TextEditingController _valorAplicadoController;
+  late TextEditingController _tituloCtrl;
+  late TextEditingController _descricaoCtrl;
+  late TextEditingController _valorCtrl;
+  String    _categoriaSel = "";
   DateTime? _dataInicio;
-  bool _isLoading = false;
+  bool      _loading      = false;
 
-  /// Verifica se está no modo edição
   bool get isEdit => widget.projeto != null;
+
+  static const _teal   = Color(0xFF00897B);
+  static const _tealDk = Color(0xFF00695C);
+
+  static const _cats = [
+    "Manutencao", "Pecas", "Lubrificantes", "Combustivel", "Outros",
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Inicializa controladores com valores atuais (se edição)
-    _tituloController = TextEditingController(text: widget.projeto?.titulo ?? '');
-    _descricaoController = TextEditingController(text: widget.projeto?.descricao ?? '');
-    _categoriaController = TextEditingController(text: widget.projeto?.categoria ?? '');
-    _valorNecessarioController = TextEditingController(
-        text: widget.projeto?.valorNecessario.toString() ?? '');
-    _valorAplicadoController = TextEditingController(
-        text: widget.projeto?.valorAplicado.toString() ?? '');
-    _dataInicio = widget.projeto?.dataInicio ?? DateTime.now();
-  }
-
-  /// 📅 Abre o seletor de data
-  Future<void> _pickDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _dataInicio!,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+    _tituloCtrl    = TextEditingController(text: widget.projeto?.titulo    ?? "");
+    _descricaoCtrl = TextEditingController(text: widget.projeto?.descricao ?? "");
+    _valorCtrl     = TextEditingController(
+      text: widget.projeto?.valorNecessario != null
+          ? widget.projeto!.valorNecessario.toStringAsFixed(2)
+          : "",
     );
-    if (date != null) {
-      setState(() => _dataInicio = date);
-    }
+    _dataInicio    = widget.projeto?.dataInicio ?? DateTime.now();
+    if (widget.projeto != null) _categoriaSel = widget.projeto!.categoria;
   }
 
-  /// 💾 Valida e salva o projeto
+  @override
+  void dispose() {
+    _tituloCtrl.dispose();
+    _descricaoCtrl.dispose();
+    _valorCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final d = await showDatePicker(
+      context: context, initialDate: _dataInicio!,
+      firstDate: DateTime(2000), lastDate: DateTime(2100),
+    );
+    if (d != null) setState(() => _dataInicio = d);
+  }
+
   Future<void> _salvar() async {
-    // Valida formulário
     if (!_formKey.currentState!.validate()) return;
+    if (_categoriaSel.isEmpty) { _snack("Selecione uma categoria", error: true); return; }
+    final ok = await NetworkChecker.isOnline();
+    if (!mounted) return;
+    if (!ok) { _snack("Sem conexao com a internet", error: true); return; }
 
-    // Verifica conexão
-    final conectado = await NetworkChecker.isOnline();
-    if (!conectado) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sem conexão com a internet'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    setState(() => _loading = true);
+    final vn = double.tryParse(_valorCtrl.text.replaceAll(",", ".")) ?? 0.0;
 
-    setState(() => _isLoading = true);
-
-    // Cálculos financeiros
-    final vn = double.tryParse(_valorNecessarioController.text) ?? 0.0;
-    final va = double.tryParse(_valorAplicadoController.text) ?? 0.0;
-    final progresso = vn == 0 ? 0.0 : (va / vn) * 100.0;
-
-    // Cria objeto Projeto
     final projeto = Projeto(
-      id: widget.projeto?.id,
-      titulo: _tituloController.text,
-      descricao: _descricaoController.text,
-      categoria: _categoriaController.text,
-      valorNecessario: vn,
-      valorAplicado: va,
-      dataInicio: _dataInicio!,
-      usuarioId: widget.usuarioId,
-      progresso: progresso,
+      id: widget.projeto?.id, titulo: _tituloCtrl.text.trim(),
+      descricao: _descricaoCtrl.text.trim(), categoria: _categoriaSel,
+      valorNecessario: vn, valorAplicado: widget.projeto?.valorAplicado ?? 0.0,
+      dataInicio: _dataInicio!, usuarioId: widget.usuarioId,
+      progresso: widget.projeto?.progresso ?? 0.0,
     );
 
     try {
-      // Chama o serviço apropriado (criação ou edição)
-      final resultado = isEdit 
-          ? await ProjetoService.atualizarProjeto(projeto, widget.token)
-          : await ProjetoService.criarProjeto(projeto, widget.token);
-
-      // Mostra feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(resultado['message']),
-          backgroundColor: resultado['success'] ? Colors.green : Colors.red,
-        ),
-      );
-
-      // Fecha a tela se sucesso
-      if (resultado['success']) {
-        Navigator.pop(context, true);
+      if (isEdit) {
+        await ProjetoService.atualizar(projeto, widget.token);
+      } else {
+        await ProjetoService.criar(projeto, widget.token);
       }
+      if (!mounted) return;
+      _snack(isEdit ? "Projeto atualizado!" : "Projeto criado!");
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      _snack("Erro: $e", error: true);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg), backgroundColor: error ? Colors.red : _teal,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Editar Projeto' : 'Novo Projeto'),
-        backgroundColor: Colors.teal.shade700,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // CAMPO TÍTULO
-              TextFormField(
-                controller: _tituloController,
-                decoration: const InputDecoration(
-                  labelText: 'Título',
-                  prefixIcon: Icon(Icons.title),
+      backgroundColor: const Color(0xFFF4F6F9),
+      body: Column(children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 52, 20, 18),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(colors: [_teal, _tealDk],
+                begin: Alignment.topLeft, end: Alignment.bottomRight),
+          ),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'Informe o título' : null,
+                child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
               ),
-              const SizedBox(height: 12),
-
-              // CAMPO DESCRIÇÃO
-              TextFormField(
-                controller: _descricaoController,
-                decoration: const InputDecoration(
-                  labelText: 'Descrição',
-                  prefixIcon: Icon(Icons.description),
+            ),
+            const SizedBox(width: 14),
+            Text(isEdit ? "Editar Projeto" : "Novo Projeto",
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _Campo(icon: Icons.push_pin_rounded, label: "TITULO",
+                  child: TextFormField(controller: _tituloCtrl, decoration: _dec("Nome do projeto..."),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? "Informe o titulo" : null)),
+                const SizedBox(height: 12),
+                _Campo(icon: Icons.description_rounded, label: "DESCRICAO",
+                  child: TextFormField(controller: _descricaoCtrl, maxLines: 3, decoration: _dec("Descreva o objetivo..."),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? "Informe a descricao" : null)),
+                const SizedBox(height: 12),
+                _Campo(icon: Icons.category_rounded, label: "CATEGORIA",
+                  child: Wrap(spacing: 8, runSpacing: 8, children: _cats.map((c) {
+                    final sel = c == _categoriaSel;
+                    return GestureDetector(
+                      onTap: () => setState(() => _categoriaSel = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: sel ? _teal : const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: sel ? [BoxShadow(color: _teal.withValues(alpha: 0.3), blurRadius: 8)] : [],
+                        ),
+                        child: Text(c, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                            color: sel ? Colors.white : const Color(0xFF607D8B))),
+                      ),
+                    );
+                  }).toList()),
                 ),
-                maxLines: 2,
-                validator: (v) => v == null || v.isEmpty ? 'Informe a descrição' : null,
-              ),
-              const SizedBox(height: 12),
-
-              // CAMPO CATEGORIA
-              TextFormField(
-                controller: _categoriaController,
-                decoration: const InputDecoration(
-                  labelText: 'Categoria',
-                  prefixIcon: Icon(Icons.category),
+                const SizedBox(height: 12),
+                _Campo(icon: Icons.attach_money_rounded, label: "VALOR NECESSARIO (META)",
+                  child: TextFormField(controller: _valorCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: _dec("R\$ 0,00"),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return "Informe o valor";
+                      if (double.tryParse(v.replaceAll(",", ".")) == null) return "Valor invalido";
+                      return null;
+                    })),
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(10)),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline_rounded, size: 15, color: Color(0xFF854F0B)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text("Para adicionar valores, use o botao Depositar na tela do projeto.",
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF854F0B)))),
+                  ]),
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'Informe a categoria' : null,
-              ),
-              const SizedBox(height: 12),
-
-              // CAMPO VALOR NECESSÁRIO
-              TextFormField(
-                controller: _valorNecessarioController,
-                decoration: const InputDecoration(
-                  labelText: 'Valor necessário',
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) => v == null || double.tryParse(v) == null
-                    ? 'Informe um valor válido'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-
-              // CAMPO VALOR APLICADO
-              TextFormField(
-                controller: _valorAplicadoController,
-                decoration: const InputDecoration(
-                  labelText: 'Valor aplicado',
-                  prefixIcon: Icon(Icons.account_balance_wallet),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) => v == null || double.tryParse(v) == null
-                    ? 'Informe um valor válido'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-
-              // CAMPO DATA
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Data de Início:'),
-                  const SizedBox(width: 12),
-                  TextButton(
-                    onPressed: _pickDate,
-                    child: Text(
-                      '${_dataInicio!.day}/${_dataInicio!.month}/${_dataInicio!.year}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                const SizedBox(height: 12),
+                _Campo(icon: Icons.calendar_today_rounded, label: "DATA DE INICIO",
+                  child: GestureDetector(
+                    onTap: _pickDate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(color: const Color(0xFFF4F6F9), borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "${_dataInicio!.day.toString().padLeft(2, "0")}/${_dataInicio!.month.toString().padLeft(2, "0")}/${_dataInicio!.year}",
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _teal),
+                          ),
+                          const Icon(Icons.edit_calendar_rounded, color: Color(0xFF90A4AE), size: 18),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // BOTÃO SALVAR
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _salvar,
-                  icon: Icon(isEdit ? Icons.save : Icons.add),
-                  label: Text(isEdit ? 'Salvar Alterações' : 'Criar Projeto'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.teal,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity, height: 54,
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator(color: _teal))
+                      : ElevatedButton.icon(
+                          onPressed: _salvar,
+                          icon: Icon(isEdit ? Icons.save_rounded : Icons.add_circle_rounded),
+                          label: Text(isEdit ? "Salvar Alteracoes" : "+ Criar Projeto",
+                              style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _teal,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 40),
+              ]),
+            ),
           ),
         ),
-      ),
+      ]),
     );
   }
+
+  InputDecoration _dec(String hint) => InputDecoration(
+    hintText: hint, hintStyle: const TextStyle(color: Color(0xFFB0BEC5), fontSize: 14),
+    filled: true, fillColor: const Color(0xFFF4F6F9),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF00897B), width: 1.5)),
+  );
+}
+
+class _Campo extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final Widget   child;
+  const _Campo({required this.icon, required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white, borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, size: 14, color: const Color(0xFF90A4AE)),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF90A4AE),
+            fontWeight: FontWeight.w700, letterSpacing: .5)),
+      ]),
+      const SizedBox(height: 8),
+      child,
+    ]),
+  );
 }

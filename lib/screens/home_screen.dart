@@ -1,156 +1,122 @@
 import 'package:flutter/material.dart';
-import '../services/usuario_service.dart';
-import '../services/projeto_service.dart';
-import 'configuracoes_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Import 'notificacao_service.dart' removido pois não está sendo usado no código atual
+import '../models/projeto_model.dart';
+import '../services/usuario_service.dart';
+import '../services/projeto_service.dart';
+import '../utils/currency_formatter.dart';
+import '../widgets/bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
   final String token;
   final String usuarioId;
 
-  const HomeScreen({
-    super.key,
-    required this.token,
-    required this.usuarioId,
-  });
+  const HomeScreen({super.key, required this.token, required this.usuarioId});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String nomeUsuario = '';
-  String emailUsuario = '';
-  String temaUsuario = '';
-  bool carregando = true;
-  bool erro = false;
-  bool valoresOcultos = true; // Inicia oculto
+  String _nome          = '';
+  String _email         = '';
+  String _tema          = '';
+  bool   _carregando    = true;
+  bool   _valoresOcultos = true;
+  int    _navIndex      = 0;
 
-  double totalInvestido = 0.0;
-  int totalProjetos = 0;
+  List<Projeto> _projetos   = [];
+  double _totalInvestido    = 0.0;
 
-  // Chave para armazenar preferência de privacidade
-  static const String _prefPrivacidadeKey = 'privacidade_ativada';
+  static const _teal    = Color(0xFF00897B);
+  static const _tealDk  = Color(0xFF00695C);
+  static const _prefKey = 'privacidade_ativada';
 
   @override
   void initState() {
     super.initState();
-
-  
-    // Carrega preferências, depois os dados do usuário e projetos
-    _carregarPreferencias().then((_) async {
-      await carregarUsuario();
-      await carregarProjetos();
-
-      // TODO: Implemente aqui a lógica real para agendar notificações programadas
-      await _agendarNotificacoesProgramadas();
-    });
+    _init();
   }
 
-  Future<void> _carregarPreferencias() async {
+  Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      valoresOcultos = prefs.getBool(_prefPrivacidadeKey) ?? true;
-    });
+    if (mounted) setState(() => _valoresOcultos = prefs.getBool(_prefKey) ?? true);
+    await Future.wait([_carregarUsuario(), _carregarProjetos()]);
   }
 
-  Future<void> _salvarPreferenciaPrivacidade(bool oculto) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefPrivacidadeKey, oculto);
-  }
-
-  Future<void> carregarUsuario() async {
+  Future<void> _carregarUsuario() async {
     try {
-      final usuario = await UsuarioService.getUsuarioPorId(widget.usuarioId);
-
-      if (usuario != null) {
+      final data = await UsuarioService.getUsuarioPorId(widget.usuarioId);
+      if (mounted && data != null) {
         setState(() {
-          nomeUsuario = usuario['name'] ?? '';
-          emailUsuario = usuario['email'] ?? '';
-          temaUsuario = usuario['theme'] ?? '';
+          _nome      = data['name']  ?? '';
+          _email     = data['email'] ?? '';
+          _tema      = data['theme'] ?? 'light';
+          _carregando = false;
         });
-      } else {
-        setState(() {
-          erro = true;
-        });
-        mostrarErro('Erro ao carregar dados do usuário.');
+      } else if (mounted) {
+        setState(() => _carregando = false);
       }
-    } catch (e) {
-      setState(() {
-        erro = true;
-      });
-      mostrarErro('Erro ao carregar usuário: $e');
-    } finally {
-      setState(() {
-        carregando = false;
-      });
+    } catch (_) {
+      if (mounted) setState(() => _carregando = false);
     }
   }
 
-  Future<void> carregarProjetos() async {
+  Future<void> _carregarProjetos() async {
     try {
-      final projetos = await ProjetoService.getProjetos(token: widget.token);
-      double soma = 0.0;
-
-      for (var projeto in projetos) {
-        soma += projeto.valorAplicado;
+      final lista = await ProjetoService.listar(widget.token);
+      if (mounted) {
+        setState(() {
+          _projetos      = lista;
+          _totalInvestido = lista.fold(0, (s, p) => s + p.valorAplicado);
+        });
       }
-
-      setState(() {
-        totalProjetos = projetos.length;
-        totalInvestido = soma;
-      });
     } catch (e) {
-      // Troquei print por debugPrint para melhor prática em Flutter
       debugPrint('Erro ao carregar projetos: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar projetos: $e')),
-      );
     }
   }
 
-  void mostrarErro(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensagem),
-        backgroundColor: Colors.red.shade400,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _salvarPrivacidade(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, v);
   }
 
-  void alternarVisibilidadeValores() {
-    setState(() {
-      valoresOcultos = !valoresOcultos;
-    });
-    _salvarPreferenciaPrivacidade(valoresOcultos);
+  Future<void> _refresh() => Future.wait([_carregarUsuario(), _carregarProjetos()]);
+
+  void _navegar(int index) {
+    setState(() => _navIndex = index);
+    switch (index) {
+      case 1:
+        Navigator.pushNamed(context, '/projetos',
+            arguments: {'token': widget.token, 'usuarioId': widget.usuarioId});
+        break;
+      case 2:
+        Navigator.pushNamed(context, '/estatisticas',
+            arguments: {'token': widget.token});
+        break;
+      case 3:
+        Navigator.pushNamed(context, '/anotacoes',
+            arguments: {'token': widget.token, 'usuarioId': widget.usuarioId});
+        break;
+      case 4:
+        Navigator.pushNamed(context, '/perfil',
+            arguments: {'token': widget.token, 'usuarioId': widget.usuarioId});
+        break;
+    }
   }
 
-  Future<void> _atualizarTela() async {
-    await Future.wait([
-      carregarUsuario(),
-      carregarProjetos(),
-    ]);
-  }
-
-  void confirmarLogout() {
+  void _confirmarLogout() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (_) => AlertDialog(
         title: const Text('Sair da conta'),
         content: const Text('Tem certeza que deseja sair?'),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              Navigator.pushReplacementNamed(context, '/');
-            },
+            onPressed: () =>
+                Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false),
             child: const Text('Sair', style: TextStyle(color: Colors.red)),
           ),
         ],
@@ -158,254 +124,367 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Este método deve verificar suas datas e horários agendados,
-  /// e disparar as notificações apenas nesses momentos.
-  /// Aqui, estou deixando como um TODO para você implementar conforme sua lógica.
-  Future<void> _agendarNotificacoesProgramadas() async {
-    // TODO: Implemente aqui a lógica real para agendar notificações
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.teal.shade700,
-        title: Text(
-          nomeUsuario.isNotEmpty ? 'Bem-vindo, $nomeUsuario' : 'Carregando...',
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Text(
-                nomeUsuario.isNotEmpty ? nomeUsuario[0].toUpperCase() : 'U',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      backgroundColor: const Color(0xFFF4F6F9),
+      bottomNavigationBar: BottomNav(currentIndex: _navIndex, onTap: _navegar),
+      body: _carregando
+          ? const Center(child: CircularProgressIndicator(color: _teal))
+          : RefreshIndicator(
+              onRefresh: _refresh,
+              color: _teal,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHeader()),
+                  SliverToBoxAdapter(child: _buildAcoesRapidas()),
+                  SliverToBoxAdapter(child: _buildRecentesHeader()),
+                  if (_projetos.isEmpty)
+                    SliverFillRemaining(hasScrollBody: false, child: _buildEmpty())
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (_, i) => _ProjetoCard(
+                            projeto: _projetos[i],
+                            oculto:  _valoresOcultos,
+                            onTap: () => Navigator.pushNamed(
+                              context, '/projeto-detalhe',
+                              arguments: {'token': widget.token, 'projeto': _projetos[i]},
+                            ).then((_) => _carregarProjetos()),
+                          ),
+                          childCount: _projetos.length > 3 ? 3 : _projetos.length,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            onSelected: (value) {
-              if (value == 'config') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ConfiguracoesScreen(
-                      nome: nomeUsuario,
-                      email: emailUsuario,
-                      theme: temaUsuario,
-                      onLogout: confirmarLogout,
-                    ),
-                  ),
-                );
-              } else if (value == 'logout') {
-                confirmarLogout();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'config',
-                child: ListTile(
-                  leading: Icon(Icons.settings),
-                  title: Text('Configurações'),
-                ),
+    );
+  }
+
+  // ── Header gradiente ─────────────────────────────────────────────────────────
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_teal, _tealDk],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // top bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Olá, 👋', style: GoogleFonts.poppins(color: const Color(0xFFB2DFDB), fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text(_nome.isNotEmpty ? _nome : 'Carregando...',
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                ],
               ),
-              PopupMenuItem(
-                value: 'logout',
-                child: ListTile(
-                  leading: Icon(Icons.logout),
-                  title: Text('Sair'),
-                ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _valoresOcultos ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: Colors.white70, size: 22,
+                    ),
+                    onPressed: () {
+                      setState(() => _valoresOcultos = !_valoresOcultos);
+                      _salvarPrivacidade(_valoresOcultos);
+                    },
+                  ),
+                  PopupMenuButton<String>(
+                    icon: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 20,
+                      child: Text(
+                        _nome.isNotEmpty ? _nome[0].toUpperCase() : 'U',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w800, color: _teal, fontSize: 18),
+                      ),
+                    ),
+                    onSelected: (v) {
+                      if (v == 'config') {
+                        Navigator.pushNamed(context, '/configuracoes', arguments: {
+                          'token': widget.token, 'nome': _nome,
+                          'email': _email, 'theme': _tema,
+                        });
+                      } else if (v == 'logout') {
+                        _confirmarLogout();
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'config',
+                          child: ListTile(leading: Icon(Icons.settings_rounded), title: Text('Configurações'))),
+                      PopupMenuItem(value: 'logout',
+                          child: ListTile(leading: Icon(Icons.logout_rounded), title: Text('Sair'))),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: carregando
-          ? const Center(child: CircularProgressIndicator())
-          : erro
-              ? const Center(
-                  child: Text(
-                    'Erro ao carregar dados.\nTente novamente.',
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _atualizarTela,
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      // DASHBOARD FINANCEIRO
-                      Card(
-                        elevation: 3,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
+          const SizedBox(height: 20),
+
+          // ── Resumo financeiro ────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Resumo Financeiro',
+                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // Total investido
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('TOTAL INVESTIDO',
+                                style: TextStyle(color: const Color(0xFFB2DFDB), fontSize: 10, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 4),
+                            Text(
+                              _valoresOcultos ? '•••••' : formatBRL(_totalInvestido),
+                              style: GoogleFonts.poppins(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Projetos — clicável
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _navegar(1),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.45), width: 1.5),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Resumo Financeiro',
-                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: Icon(
-                                      valoresOcultos ? Icons.visibility_off : Icons.visibility,
-                                      size: 20,
-                                    ),
-                                    onPressed: alternarVisibilidadeValores,
-                                  ),
+                                  Text('PROJETOS',
+                                      style: TextStyle(color: const Color(0xFFB2DFDB), fontSize: 10, fontWeight: FontWeight.w500)),
+                                  const Icon(Icons.arrow_outward_rounded, color: Color(0xFFB2DFDB), size: 14),
                                 ],
                               ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  _DashboardCard(
-                                    icon: Icons.attach_money,
-                                    label: 'Total Investido',
-                                    value: valoresOcultos ? '•••••' : 'R\$ ${totalInvestido.toStringAsFixed(2)}',
-                                    color: Colors.green,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _DashboardCard(
-                                    icon: Icons.flag,
-                                    label: 'Projetos',
-                                    value: totalProjetos.toString(),
-                                    color: Colors.blue,
-                                  ),
-                                ],
-                              ),
+                              const SizedBox(height: 4),
+                              Text('${_projetos.length} ativos',
+                                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 2),
+                              Text('Toque para ver todos',
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 9, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 30),
-
-                      // AÇÕES RÁPIDAS
-                      Text('Ações Rápidas',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      _ActionCard(
-                        icon: Icons.add_circle,
-                        title: 'Novo Projeto',
-                        subtitle: 'Crie um novo projeto com metas.',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/projeto_form',
-                          arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _ActionCard(
-                        icon: Icons.note_add,
-                        title: 'Nova Anotação',
-                        subtitle: 'Salve lembretes ou ideias.',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/anotacao_form',
-                          arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-
-                      // LINKS ÚTEIS
-                      _ActionCard(
-                        icon: Icons.folder,
-                        title: 'Ver Projetos',
-                        subtitle: 'Visualize todos os seus projetos',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/projetos',
-                          arguments: {'token': widget.token},
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _ActionCard(
-                        icon: Icons.note,
-                        title: 'Ver Anotações',
-                        subtitle: 'Acesse suas anotações salvas',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/anotacoes',
-                          arguments: {'usuarioId': widget.usuarioId, 'token': widget.token},
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-    );
-  }
-}
-
-// Widget para cartão de dashboard
-class _DashboardCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _DashboardCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        // Ajuste para evitar uso depreciado de withOpacity
-        // Usando withAlpha, alpha de 25% equivale a 64 em hexadecimal (255*0.25=~64)
-        color: color.withAlpha(64),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 30),
-              const SizedBox(height: 10),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 16)),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
+
+  // ── Ações rápidas 2x2 ────────────────────────────────────────────────────────
+  Widget _buildAcoesRapidas() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 2.4,
+        children: [
+          _AcaoCard(icon: Icons.add_circle_rounded,   label: 'Novo Projeto',   iconColor: const Color(0xFF43A047),
+              onTap: () => Navigator.pushNamed(context, '/novo-projeto',
+                  arguments: {'token': widget.token, 'usuarioId': widget.usuarioId})
+                  .then((_) => _carregarProjetos())),
+          _AcaoCard(icon: Icons.edit_note_rounded,    label: 'Nova Anotação',  iconColor: const Color(0xFF1E88E5),
+              onTap: () => Navigator.pushNamed(context, '/nova-anotacao',
+                  arguments: {'token': widget.token, 'usuarioId': widget.usuarioId})),
+          _AcaoCard(icon: Icons.bar_chart_rounded,    label: 'Estatísticas',   iconColor: const Color(0xFFFB8C00),
+              onTap: () => _navegar(2)),
+          _AcaoCard(icon: Icons.notifications_rounded, label: 'Anotações',     iconColor: const Color(0xFFE53935),
+              onTap: () => _navegar(3)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentesHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Projetos Recentes',
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF455A64))),
+          TextButton(
+            onPressed: () => _navegar(1),
+            child: const Text('Ver todos', style: TextStyle(color: _teal, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty() => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text('Nenhum projeto ainda',
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/novo-projeto',
+                  arguments: {'token': widget.token, 'usuarioId': widget.usuarioId}),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Criar primeiro projeto'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: _teal,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+          ],
+        ),
+      );
 }
 
-// Widget para cartões de ação
-class _ActionCard extends StatelessWidget {
+// ── Widgets locais ─────────────────────────────────────────────────────────────
+class _AcaoCard extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String   label;
+  final Color    iconColor;
   final VoidCallback onTap;
+  const _AcaoCard({required this.icon, required this.label, required this.iconColor, required this.onTap});
 
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: iconColor, borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(label,
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF263238))),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _ProjetoCard extends StatelessWidget {
+  final Projeto projeto;
+  final bool    oculto;
+  final VoidCallback onTap;
+  const _ProjetoCard({required this.projeto, required this.oculto, required this.onTap});
+
+  static const _catColors = {
+    'Manutenção': Color(0xFF43A047), 'Lubrificantes': Color(0xFFFB8C00),
+    'Peças': Color(0xFF1E88E5),      'Combustível': Color(0xFF00897B),
+    'Outros': Color(0xFF9C27B0),
+  };
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.teal.shade700),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+    final color = _catColors[projeto.categoria] ?? const Color(0xFF00897B);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.13),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(projeto.titulo[0].toUpperCase(),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(projeto.titulo,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF263238))),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value:           (projeto.progresso / 100).clamp(0.0, 1.0),
+                      minHeight:       6,
+                      backgroundColor: const Color(0xFFECEFF1),
+                      valueColor:      AlwaysStoppedAnimation(color),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text('${projeto.progresso.toStringAsFixed(0)}%',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+          ],
+        ),
       ),
     );
   }

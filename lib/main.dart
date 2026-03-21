@@ -1,219 +1,174 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // Para acordar o servidor
+import 'package:google_fonts/google_fonts.dart';
 
-// Telas principais
-import 'package:meu_app_financas/screens/login_screen.dart';
-import 'package:meu_app_financas/screens/cadastro_screen.dart';
-import 'package:meu_app_financas/screens/home_screen.dart';
-import 'package:meu_app_financas/screens/projetos_screen.dart';
-import 'package:meu_app_financas/screens/anotacoes_screen.dart';
-import 'package:meu_app_financas/screens/anotacao_form.dart';
-import 'package:meu_app_financas/screens/projeto_form.dart';
-import 'package:meu_app_financas/screens/projeto_detalhe.dart';
-import 'package:meu_app_financas/screens/perfil_screen.dart';
-
-// Modelos
-import 'package:meu_app_financas/models/projeto_model.dart';
-import 'package:meu_app_financas/models/anotacao_model.dart';
-
-// Notificações
-import 'package:meu_app_financas/utils/notificacao_service.dart';
-import 'package:timezone/data/latest_all.dart' as tz;
-
-// Gerenciador de Sessão
-import 'package:meu_app_financas/utils/session_manager.dart';
-
-/// Função para acordar o servidor Render e evitar o delay do "cold start"
-Future<void> wakeServer() async {
-  const String wakeUrl = 'https://backendapp-0bcg.onrender.com/health';
-  try {
-    await http.get(Uri.parse(wakeUrl)).timeout(const Duration(seconds: 3));
-  } catch (_) {
-    // Ignora qualquer erro — é só para "acordar" o servidor
-  }
-}
+import 'screens/login_screen.dart';
+import 'screens/cadastro_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/projetos_screen.dart';
+import 'screens/projeto_form.dart';
+import 'screens/projeto_detalhe.dart';
+import 'screens/deposito_screen.dart';
+import 'screens/estatisticas_screen.dart';
+import 'screens/anotacoes_screen.dart';
+import 'screens/anotacao_form.dart';
+import 'screens/perfil_screen.dart';
+import 'screens/configuracoes_screen.dart';
+import 'models/projeto_model.dart';
+import 'models/anotacao_model.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializa timezones e notificações
-  tz.initializeTimeZones();
-  await NotificacaoService.init();
-
-  // 🔹 Acorda o servidor assim que o app inicia
-  await wakeServer();
-
-  runApp(const MeuAppFinancas());
+  final session = await AuthService.getSavedSession();
+  runApp(FinanceApp(initialSession: session));
 }
 
-/// Widget para detectar quando o app volta do background e acordar o servidor
-class AppLifecycleHandler extends StatefulWidget {
-  final Widget child;
-  const AppLifecycleHandler({super.key, required this.child});
+class FinanceApp extends StatelessWidget {
+  final Map<String, String>? initialSession;
 
-  @override
-  State<AppLifecycleHandler> createState() => _AppLifecycleHandlerState();
-}
-
-class _AppLifecycleHandlerState extends State<AppLifecycleHandler> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // 🔹 Acorda o servidor quando o app volta a ser usado
-      wakeServer();
-    }
-  }
+  const FinanceApp({super.key, this.initialSession});
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
-  }
-}
-
-class MeuAppFinancas extends StatefulWidget {
-  const MeuAppFinancas({super.key});
-
-  @override
-  State<MeuAppFinancas> createState() => _MeuAppFinancasState();
-}
-
-class _MeuAppFinancasState extends State<MeuAppFinancas> {
-  late final SessionManager _sessionManager;
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Inicializa o SessionManager com a função de logout automático
-    _sessionManager = SessionManager(onLogout: _handleLogout);
-    _sessionManager.iniciarMonitoramento();
-  }
-
-  @override
-  void dispose() {
-    _sessionManager.pararMonitoramento();
-    super.dispose();
-  }
-
-  // Função chamada quando a sessão expira para redirecionar ao login
-  void _handleLogout() {
-    _navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
-    debugPrint("Usuário deslogado automaticamente.");
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AppLifecycleHandler( // 🔹 Envolve todo o app para detectar volta do background
-      child: GestureDetector(
-        // Captura interações para resetar o timer da sessão
-        onTap: _sessionManager.registrarInteracao,
-        onPanDown: (_) => _sessionManager.registrarInteracao(),
-        child: MaterialApp(
-          navigatorKey: _navigatorKey,
-          title: 'Meu App Finanças',
-          theme: ThemeData(
-            primarySwatch: Colors.teal,
-            visualDensity: VisualDensity.adaptivePlatformDensity,
+    return MaterialApp(
+      title: 'Financeiro',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF00897B),
+        textTheme: GoogleFonts.poppinsTextTheme(),
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFF00897B),
+          foregroundColor: Colors.white,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
-          debugShowCheckedModeBanner: false,
-          initialRoute: '/',
-          routes: {
-            '/': (context) => LoginScreen(),
-            '/cadastro': (context) => const CadastroScreen(),
-            '/home': (context) {
-              final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
-              if (args == null || args['token'] == null || args['usuarioId'] == null) {
-                return const Scaffold(
-                  body: Center(child: Text('Erro: Dados de login não encontrados')),
-                );
-              }
-
-              return HomeScreen(
-                token: args['token'],
-                usuarioId: args['usuarioId'],
-              );
-            },
-            '/perfil': (context) {
-              final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-              if (args == null || args['token'] == null) {
-                return const Scaffold(
-                  body: Center(child: Text('Erro: Token não fornecido para perfil')),
-                );
-              }
-              return PerfilScreen(token: args['token']);
-            },
-          },
-          onGenerateRoute: (settings) {
-            switch (settings.name) {
-              case '/projetos':
-                final args = settings.arguments as Map<String, dynamic>;
-                return MaterialPageRoute(
-                  builder: (_) => ProjetosScreen(token: args['token']),
-                );
-
-              case '/projeto_form':
-                final args = settings.arguments as Map<String, dynamic>;
-                return MaterialPageRoute(
-                  builder: (_) => ProjetoForm(
-                    usuarioId: args['usuarioId'].toString(),
-                    token: args['token'].toString(),
-                    projeto: args['projeto'] as Projeto?,
-                  ),
-                );
-
-              case '/projeto_detalhe':
-                final args = settings.arguments as Map<String, dynamic>;
-                return MaterialPageRoute(
-                  builder: (_) => ProjetoDetalheScreen(
-                    projeto: args['projeto'] as Projeto,
-                    token: args['token'].toString(),
-                  ),
-                );
-
-              case '/anotacoes':
-                final args = settings.arguments as Map<String, dynamic>;
-                return MaterialPageRoute(
-                  builder: (_) => AnotacoesScreen(
-                    usuarioId: args['usuarioId'].toString(),
-                    token: args['token'].toString(),
-                  ),
-                );
-
-              case '/anotacao_form':
-                final args = settings.arguments as Map<String, dynamic>;
-                return MaterialPageRoute(
-                  builder: (_) => AnotacaoForm(
-                    usuarioId: args['usuarioId'].toString(),
-                    token: args['token'].toString(),
-                    anotacao: args['anotacao'] as Anotacao?,
-                  ),
-                );
-
-              default:
-                return MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(title: const Text('Rota não encontrada')),
-                    body: const Center(child: Text('Página não encontrada')),
-                  ),
-                );
-            }
-          },
+          elevation: 0,
         ),
       ),
+
+      initialRoute: initialSession != null ? '/home' : '/login',
+
+      onGenerateRoute: (settings) {
+        final args = settings.arguments as Map<String, dynamic>?;
+
+        switch (settings.name) {
+
+          // ── Auth ──────────────────────────────────────────────────────────
+          case '/login':
+            return _fade(const LoginScreen());
+
+          case '/cadastro':
+            return _slide(const CadastroScreen());
+
+          // ── Home ──────────────────────────────────────────────────────────
+          case '/home':
+            return _fade(HomeScreen(
+              token:     args!['token'],
+              usuarioId: args['usuarioId'],
+            ));
+
+          // ── Projetos ──────────────────────────────────────────────────────
+          case '/projetos':
+            return _slide(ProjetosScreen(
+              token:     args!['token'],
+              usuarioId: args['usuarioId'] ?? '',
+            ));
+
+          case '/novo-projeto':
+            return _slide(ProjetoForm(
+              token:     args!['token'],
+              usuarioId: args['usuarioId'] ?? '',
+              projeto:   args['projeto'] as Projeto?,
+            ));
+
+          case '/projeto-detalhe':
+            return _slide(ProjetoDetalheScreen(
+              token:   args!['token'],
+              projeto: args['projeto'] as Projeto,
+            ));
+
+          // ── Depósito — sobe de baixo igual modal de banco ─────────────────
+          case '/deposito':
+            return _modal(DepositoScreen(
+              token:   args!['token'],
+              projeto: args['projeto'] as Projeto,
+            ));
+
+          // ── Estatísticas ──────────────────────────────────────────────────
+          case '/estatisticas':
+            return _slide(EstatisticasScreen(token: args!['token']));
+
+          // ── Anotações ─────────────────────────────────────────────────────
+          case '/anotacoes':
+            return _slide(AnotacoesScreen(
+              token:     args!['token'],
+              usuarioId: args['usuarioId'] ?? '',
+            ));
+
+          case '/nova-anotacao':
+            return _slide(AnotacaoForm(
+              token:     args!['token'],
+              usuarioId: args['usuarioId'] ?? '',
+              anotacao:  args['anotacao'] as Anotacao?,
+            ));
+
+          // ── Perfil ────────────────────────────────────────────────────────
+          case '/perfil':
+            return _slide(PerfilScreen(
+              token:     args!['token'],
+              usuarioId: args['usuarioId'] ?? '',
+            ));
+
+          // ── Configurações ─────────────────────────────────────────────────
+          case '/configuracoes':
+            return _slide(ConfiguracoesScreen(
+              token:  args!['token'],
+              nome:   args['nome']  ?? '',
+              email:  args['email'] ?? '',
+              theme:  args['theme'] ?? 'light',
+            ));
+
+          default:
+            return _fade(const LoginScreen());
+        }
+      },
     );
   }
+
+  // ── Transições ─────────────────────────────────────────────────────────────
+
+  /// Fade suave — Login e Home (telas raiz)
+  static PageRoute _fade(Widget page) => PageRouteBuilder(
+        pageBuilder:        (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 250),
+      );
+
+  /// Slide lateral — navegação normal entre telas
+  static PageRoute _slide(Widget page) => PageRouteBuilder(
+        pageBuilder:        (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            SlideTransition(
+              position: Tween(begin: const Offset(1, 0), end: Offset.zero)
+                  .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+              child: child,
+            ),
+        transitionDuration: const Duration(milliseconds: 300),
+      );
+
+  /// Modal de baixo para cima — Depósito (igual app de banco)
+  static PageRoute _modal(Widget page) => PageRouteBuilder(
+        pageBuilder:        (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            SlideTransition(
+              position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                  .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+              child: child,
+            ),
+        transitionDuration: const Duration(milliseconds: 350),
+      );
 }

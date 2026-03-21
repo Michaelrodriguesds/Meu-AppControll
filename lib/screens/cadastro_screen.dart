@@ -4,7 +4,7 @@ import '../services/usuario_service.dart';
 import '../utils/form_validators.dart';
 
 class CadastroScreen extends StatefulWidget {
-  const CadastroScreen({Key? key}) : super(key: key);
+  const CadastroScreen({super.key}); // ✅ corrigido aqui
 
   @override
   State<CadastroScreen> createState() => _CadastroScreenState();
@@ -22,6 +22,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   /// Exibe mensagem de feedback na tela (Snackbar)
   void _mostrarMensagem(String mensagem, {Color cor = Colors.red}) {
+    if (!mounted) return; // ✅ proteção extra
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensagem),
@@ -44,11 +46,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
     final resultado = await UsuarioService.criarUsuario(usuario);
 
+    if (!mounted) return; // ✅ ESSENCIAL (corrige warning)
+
     setState(() => _isLoading = false);
 
     if (resultado == true) {
       _mostrarMensagem('Usuário criado com sucesso!', cor: Colors.green);
-      Navigator.pop(context); // Volta para tela de login
+      Navigator.pop(context);
     } else if (resultado == 'email_ja_cadastrado') {
       _mostrarMensagem('Este e-mail já está cadastrado.');
     } else {
@@ -95,7 +99,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 controller: nomeController,
                 decoration: InputDecoration(
                   labelText: 'Nome completo',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   prefixIcon: const Icon(Icons.person),
                 ),
                 validator: FormValidators.naoVazio,
@@ -108,7 +114,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: 'E-mail',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   prefixIcon: const Icon(Icons.email),
                 ),
                 validator: FormValidators.email,
@@ -121,11 +129,15 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 obscureText: !_mostrarSenha,
                 decoration: InputDecoration(
                   labelText: 'Senha',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _mostrarSenha ? Icons.visibility : Icons.visibility_off,
+                      _mostrarSenha
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() => _mostrarSenha = !_mostrarSenha);

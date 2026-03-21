@@ -1,57 +1,54 @@
 # Nome do aplicativo (deve seguir snake_case)
 name: meu_app_financas
 
-# Descrição do projeto (aparece no pub.dev, se publicado)
+# Descrição do projeto
 description: "Aplicativo de gerenciamento financeiro pessoal desenvolvido em Flutter com recursos completos de anotações, projetos e controle financeiro."
 
-# Não publicar no pub.dev (projeto privado)
 publish_to: 'none'
 
-# Versão do app (formato: versão+build)
-version: 1.1.0+2  # Atualizado para versão 1.1
+version: 1.1.0+2
 
-# Requisitos de ambiente
 environment:
-  sdk: ">=3.8.1 <4.0.0"  # Requer Dart SDK 3.8.1 ou superior
+  sdk: ">=3.8.1 <4.0.0"
 
-# DEPENDÊNCIAS DE PRODUÇÃO (são incluídas no app final)
 dependencies:
   flutter:
-    sdk: flutter  # SDK do Flutter
+    sdk: flutter
 
-  # Dependências principais
-  cupertino_icons: ^1.0.8  # Ícones no estilo iOS
-  http: ^1.4.0  # Cliente HTTP para APIs REST
-  intl: ^0.20.2  # Formatação de datas, números e moedas
-  google_fonts: ^6.3.0  # Tipografia personalizada
+  # UI
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.3.0
+  flutter_slidable: ^3.0.0
+  pull_to_refresh: ^2.0.0
+  syncfusion_flutter_datepicker: ^30.2.4
+  flutter_launcher_icons: ^0.13.1
 
-  # Para recursos de anotações
-  flutter_local_notifications: ^19.4.0  # Notificações locais
-  timezone: ^0.10.1  # Suporte a fuso horário
-  shared_preferences: ^2.2.2  # Armazenamento local
-  connectivity_plus: ^6.1.4  # Verificação de conexão
-  permission_handler: ^11.3.1  # <-- Adicione esta linha
-  
-  # Novas dependências para melhorias
-  flutter_slidable: ^3.0.0  # Para ações deslizáveis
-  pull_to_refresh: ^2.0.0  # Melhor pull-to-refresh
-  syncfusion_flutter_datepicker: ^30.2.4 # Seletores de data melhores
-  flutter_launcher_icons: ^0.13.1  # Personalização de ícones
+  # HTTP / rede
+  http: ^1.4.0
+  connectivity_plus: ^6.1.4
 
-# DEPENDÊNCIAS DE DESENVOLVIMENTO (usadas apenas no desenvolvimento/teste)
+  # Dados locais
+  shared_preferences: ^2.2.2
+  intl: ^0.20.2
+
+  # Notificações
+  flutter_local_notifications: ^19.4.0
+  timezone: ^0.10.1
+  permission_handler: ^11.3.1
+
+  # Autenticação biométrica  ← ADICIONADO
+  local_auth: ^2.3.0
+
 dev_dependencies:
   flutter_test:
-    sdk: flutter  # Framework de testes nativo
-  
-  flutter_lints: ^6.0.0  # Regras de boas práticas
-  build_runner: ^2.4.6  # Para geração de código
-  mockito: ^5.4.2  # Para testes mockados
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.6
+  mockito: ^5.4.2
 
-# CONFIGURAÇÕES DO FLUTTER
 flutter:
-  uses-material-design: true  # Ativa Material Design
+  uses-material-design: true
 
-  # Fontes personalizadas (Poppins)
   fonts:
     - family: Poppins
       fonts:
@@ -61,7 +58,6 @@ flutter:
         - asset: assets/fonts/Poppins-Medium.ttf
           weight: 500
 
-# Configuração para geração de ícones personalizados (flutter_launcher_icons)
 flutter_icons:
   android: true
   ios: true
