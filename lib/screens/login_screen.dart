@@ -160,7 +160,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onSubmit: (_) => _login(),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 8),
+
+                    // Esqueci minha senha
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pushNamed(context, '/esqueci-senha'),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        child: Text(
+                          'Esqueci minha senha',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: _teal,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
 
                     // Botão login
                     SizedBox(

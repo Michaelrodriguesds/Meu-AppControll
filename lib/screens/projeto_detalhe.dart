@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/projeto_model.dart';
+import '../services/projeto_service.dart';
 import '../models/transacao_model.dart';
 import '../services/transacao_service.dart';
 import '../utils/currency_formatter.dart';
@@ -64,6 +65,52 @@ class _ProjetoDetalheScreenState extends State<ProjetoDetalheScreen> {
     }
   }
 
+  Future<void> _editar() async {
+    final result = await Navigator.pushNamed(
+      context, '/novo-projeto',
+      arguments: {
+        'token':     widget.token,
+        'usuarioId': _projeto.usuarioId,
+        'projeto':   _projeto,
+      },
+    );
+    if (result == true && mounted) {
+      // Recarrega o projeto atualizado
+      Navigator.pop(context, true);
+    }
+  }
+
+  Future<void> _excluir() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Excluir projeto'),
+        content: Text('Deseja excluir "${_projeto.titulo}"? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ProjetoService.deletar(_projeto.id!, widget.token);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Projeto excluído!'), backgroundColor: Color(0xFF00897B)),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao excluir: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Color get _color => _catColors[_projeto.categoria] ?? const Color(0xFF00897B);
 
   @override
@@ -81,6 +128,34 @@ class _ProjetoDetalheScreenState extends State<ProjetoDetalheScreen> {
               icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
               onPressed: () => Navigator.pop(context, _projeto),
             ),
+            actions: [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                onSelected: (v) {
+                  if (v == 'editar')  _editar();
+                  if (v == 'excluir') _excluir();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'editar',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_rounded, color: Color(0xFF00897B)),
+                      title: Text('Editar projeto'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'excluir',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_rounded, color: Colors.red),
+                      title: Text('Excluir projeto', style: TextStyle(color: Colors.red)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
