@@ -16,6 +16,8 @@ import 'screens/configuracoes_screen.dart';
 import 'models/projeto_model.dart';
 import 'models/anotacao_model.dart';
 import 'services/auth_service.dart';
+import 'screens/esqueci_senha_screen.dart';
+import 'screens/verificar_codigo_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,10 +67,15 @@ class FinanceApp extends StatelessWidget {
 
           // ── Home ──────────────────────────────────────────────────────────
           case '/home':
-            return _fade(HomeScreen(
-              token:     args!['token'],
-              usuarioId: args['usuarioId'],
-            ));
+            // args pode ser null quando vem do initialRoute (sessão salva)
+            final homeToken = (args?['token']     as String?)
+                           ?? initialSession?['token']
+                           ?? '';
+            final homeUser  = (args?['usuarioId'] as String?)
+                           ?? initialSession?['userId']
+                           ?? initialSession?['usuarioId']
+                           ?? '';
+            return _fade(HomeScreen(token: homeToken, usuarioId: homeUser));
 
           // ── Projetos ──────────────────────────────────────────────────────
           case '/projetos':
@@ -129,6 +136,15 @@ class FinanceApp extends StatelessWidget {
               nome:   args['nome']  ?? '',
               email:  args['email'] ?? '',
               theme:  args['theme'] ?? 'light',
+            ));
+
+          // ── Recuperação de senha ──────────────────────────────────────
+          case '/esqueci-senha':
+            return _slide(const EsqueciSenhaScreen());
+
+          case '/verificar-codigo':
+            return _slide(VerificarCodigoScreen(
+              email: (args?['email'] as String?) ?? '',
             ));
 
           default:
