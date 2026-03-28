@@ -16,13 +16,30 @@ import 'screens/configuracoes_screen.dart';
 import 'models/projeto_model.dart';
 import 'models/anotacao_model.dart';
 import 'services/auth_service.dart';
+import 'utils/notificacao_service.dart';
 import 'screens/esqueci_senha_screen.dart';
 import 'screens/verificar_codigo_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializa notificações locais
+  await NotificacaoService.init();
+
+  // Verifica sessão salva — se token expirado, limpa e vai para login
   final session = await AuthService.getSavedSession();
-  runApp(FinanceApp(initialSession: session));
+  final validSession = session != null
+      ? await AuthService.validateToken(session['token'] ?? '')
+          ? session
+          : null
+      : null;
+
+  if (validSession == null && session != null) {
+    // Token expirado — limpa sessão para não logar automaticamente com token morto
+    await AuthService.logout();
+  }
+
+  runApp(FinanceApp(initialSession: validSession));
 }
 
 class FinanceApp extends StatelessWidget {

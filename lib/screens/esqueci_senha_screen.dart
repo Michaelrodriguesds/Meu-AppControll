@@ -50,15 +50,26 @@ class _EsqueciSenhaScreenState extends State<EsqueciSenhaScreen> {
 
       if (res.statusCode == 200) {
         // Navega para tela de código — mesmo se e-mail não existir (segurança)
+        if (!mounted) return;
         Navigator.pushNamed(
           context,
           '/verificar-codigo',
           arguments: {'email': email},
         );
       } else if (res.statusCode == 503) {
-        _snack('Servidor de e-mail indisponível. Tente novamente.', error: true);
+        _snack(
+          'E-mail não pôde ser enviado.\nVerifique as configurações SMTP no servidor.',
+          error: true,
+        );
       } else {
-        _snack('Erro inesperado. Tente novamente.', error: true);
+        // Tenta mostrar a mensagem de erro real do backend
+        try {
+          final body = jsonDecode(res.body);
+          final detail = body['detail'] as String? ?? 'Erro ao processar solicitação.';
+          _snack(detail, error: true);
+        } catch (_) {
+          _snack('Erro ao processar solicitação. Tente novamente.', error: true);
+        }
       }
     } catch (_) {
       if (mounted) _snack('Erro de conexão. Tente novamente.', error: true);

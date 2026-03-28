@@ -17,8 +17,18 @@ class NotificacaoService {
   static Future<void> init() async {
     if (_inicializado) return; // evita múltiplas inicializações
 
-    // Inicializa dados de timezone para agendamento correto
+    // Inicializa timezones e define timezone local do dispositivo
     tz.initializeTimeZones();
+    // Pega o timezone atual do dispositivo via DateTime
+    final String timezoneName = DateTime.now().timeZoneName;
+    try {
+      tz.setLocalLocation(tz.getLocation(timezoneName));
+    } catch (_) {
+      // fallback para America/Sao_Paulo se timezone não reconhecido
+      try {
+        tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
+      } catch (_) {}
+    }
 
     // Configuração Android: ícone padrão
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -54,7 +64,7 @@ class NotificacaoService {
   /// Lança exceção se tentar agendar no passado ou se serviço não inicializado.
   static Future<void> agendarNotificacao(String titulo, String conteudo, DateTime horario) async {
     if (!_inicializado) {
-      throw Exception('NotificacaoService não inicializado. Chame init() antes.');
+      await init(); // auto-inicializa se necessário
     }
 
     if (horario.isBefore(DateTime.now())) {

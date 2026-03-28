@@ -73,11 +73,18 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
     try {
       final data = await AuthService.loginWithBiometric();
+      if (!mounted) return;
       if (data == null) {
-        _snack('Biometria falhou. Use e-mail e senha.', error: true);
+        // Token expirado ou biometria cancelada — pede login manual
+        _snack(
+          'Sessão expirada. Por favor, entre com e-mail e senha.',
+          error: true,
+        );
         return;
       }
       _goHome(data['token']!, data['userId']!);
+    } catch (e) {
+      if (mounted) _snack('Erro na biometria. Use e-mail e senha.', error: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
